@@ -6,6 +6,11 @@
 #include <string.h>
 #include <unistd.h>
 #include <stdarg.h>
+#ifndef __WIN32__
+#include <alloca.h>
+#else
+#include <malloc.h>
+#endif
 
 #ifdef RMVL_PACKAGE
 #include <R.h>
