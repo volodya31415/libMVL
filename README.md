@@ -43,7 +43,7 @@ The context is destroyed using mvl_free_context(ctx);
 
 In order to write to MVL file the user needs to provide stdio FILE using mvl_open():
 
-FILE *fout=fopen("test", "w");
+FILE *fout=fopen("test.mvl", "w");
 
 mvl_open(ctx, fout);
 
