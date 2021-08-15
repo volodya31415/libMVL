@@ -685,7 +685,7 @@ return(L);
 LIBMVL_NAMED_LIST *mvl_read_named_list(LIBMVL_CONTEXT *ctx, const void *data, LIBMVL_OFFSET64 offset)
 {
 LIBMVL_NAMED_LIST *L, *Lattr;
-char *p, *d;
+char *d;
 LIBMVL_OFFSET64 names_ofs, tag_ofs;
 long i, nelem;
 
