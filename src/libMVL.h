@@ -30,7 +30,7 @@ first 0 byte */
  * 
  * Thus the number of strings in PACKED_LIST64 is length-1.
  * 
- * The usuage of 64-bit offsets is allows for arbitrarily long strings in the list, while requiring only minimal overhead for each string.
+ * The usage of 64-bit offsets allows for arbitrarily long strings in the list, while requiring only minimal overhead for each string.
  * 
  * The type is separate from LIBMVL_VECTOR_OFFSET64 to facilitate automated tree traversal.
  */
@@ -164,9 +164,9 @@ LIBMVL_OFFSET64 mvl_write_vector(LIBMVL_CONTEXT *ctx, int type, long length, con
 
 /* This is identical to mvl_write_vector() except that it allows to reserve space for more data than is supplied. */
 LIBMVL_OFFSET64 mvl_start_write_vector(LIBMVL_CONTEXT *ctx, int type, long expected_length, long length, const void *data, LIBMVL_OFFSET64 metadata);
-/* Rewrite data in already written vector */
+/* Rewrite data in already written vector with offset base_offset */
 /* In particular this allows vectors to be built up in pieces, by calling mvl_start_write_vector first */
-void mvl_rewrite_vector(LIBMVL_CONTEXT *ctx, int type, LIBMVL_OFFSET64 offset, long length, const void *data);
+void mvl_rewrite_vector(LIBMVL_CONTEXT *ctx, int type, LIBMVL_OFFSET64 base_offset, LIBMVL_OFFSET64 idx, long length, const void *data);
 
 
 LIBMVL_OFFSET64 mvl_write_concat_vectors(LIBMVL_CONTEXT *ctx, int type, long nvec, long *lengths, void **data, LIBMVL_OFFSET64 metadata);

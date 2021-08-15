@@ -209,6 +209,7 @@ switch(type) {
 	case LIBMVL_VECTOR_INT64:
 	case LIBMVL_VECTOR_DOUBLE:
 	case LIBMVL_VECTOR_OFFSET64:
+	case LIBMVL_PACKED_LIST64:
 		byte_length=length*8;
 		total_byte_length=expected_length*8;
 		break;
@@ -249,13 +250,14 @@ if(padding>0) {
 return(offset);
 }
 
-void mvl_rewrite_vector(LIBMVL_CONTEXT *ctx, int type, LIBMVL_OFFSET64 offset, long length, const void *data)
+void mvl_rewrite_vector(LIBMVL_CONTEXT *ctx, int type, LIBMVL_OFFSET64 base_offset, LIBMVL_OFFSET64 idx, long length, const void *data)
 {
-LIBMVL_OFFSET64 byte_length;
+LIBMVL_OFFSET64 byte_length, elt_size;
 
-byte_length=length*mvl_element_size(type);
+elt_size=mvl_element_size(type);
+byte_length=length*elt_size;
 
-if(byte_length>0)mvl_rewrite(ctx, offset, byte_length, data);
+if(byte_length>0)mvl_rewrite(ctx, base_offset+elt_size*idx+sizeof(ctx->tmp_vh), byte_length, data);
 }
 
 LIBMVL_OFFSET64 mvl_write_concat_vectors(LIBMVL_CONTEXT *ctx, int type, long nvec, long *lengths, void **data, LIBMVL_OFFSET64 metadata)
@@ -609,14 +611,8 @@ return(attr_offset);
 
 LIBMVL_OFFSET64 mvl_write_named_list(LIBMVL_CONTEXT *ctx, LIBMVL_NAMED_LIST *L)
 {
-LIBMVL_OFFSET64 *offsets, list_offset;
+LIBMVL_OFFSET64 list_offset;
 LIBMVL_NAMED_LIST *metadata;
-long i;
-// offsets=do_malloc(L->free, sizeof(*offsets));
-
-// for(i=0;i<L->free;i++) {
-// 	offsets[i]=mvl_write_string(ctx, L->tag_length[i], L->tag[i], LIBMVL_NO_METADATA);
-// 	}
 	
 metadata=mvl_create_R_attributes_list(ctx, "list");
 //mvl_add_list_entry(metadata, -1, "names", mvl_write_vector(ctx, LIBMVL_VECTOR_OFFSET64, L->free, offsets, LIBMVL_NO_METADATA));
@@ -625,21 +621,14 @@ mvl_add_list_entry(metadata, -1, "names", mvl_write_packed_list(ctx, L->free, L-
 list_offset=mvl_write_vector(ctx, LIBMVL_VECTOR_OFFSET64, L->free, L->offset, mvl_write_attributes_list(ctx, metadata));
 
 mvl_free_named_list(metadata);
-// free(offsets);
 
 return(list_offset);
 }
 
 LIBMVL_OFFSET64 mvl_write_named_list_as_data_frame(LIBMVL_CONTEXT *ctx, LIBMVL_NAMED_LIST *L, int nrows, LIBMVL_OFFSET64 rownames)
 {
-LIBMVL_OFFSET64 *offsets, list_offset;
+LIBMVL_OFFSET64 list_offset;
 LIBMVL_NAMED_LIST *metadata;
-long i;
-// offsets=do_malloc(L->free, sizeof(*offsets));
-// 
-// for(i=0;i<L->free;i++) {
-// 	offsets[i]=mvl_write_string(ctx, L->tag_length[i], L->tag[i], LIBMVL_NO_METADATA);
-// 	}
 	
 metadata=mvl_create_R_attributes_list(ctx, "data.frame");
 // mvl_add_list_entry(metadata, -1, "names", mvl_write_vector(ctx, LIBMVL_VECTOR_OFFSET64, L->free, offsets, LIBMVL_NO_METADATA));
@@ -651,7 +640,6 @@ if(rownames!=0)mvl_add_list_entry(metadata, -1, "rownames", rownames);
 list_offset=mvl_write_vector(ctx, LIBMVL_VECTOR_OFFSET64, L->free, L->offset, mvl_write_attributes_list(ctx, metadata));
 
 mvl_free_named_list(metadata);
-// free(offsets);
 
 return(list_offset);
 }
@@ -700,7 +688,6 @@ LIBMVL_NAMED_LIST *L, *Lattr;
 char *p, *d;
 LIBMVL_OFFSET64 names_ofs, tag_ofs;
 long i, nelem;
-int t;
 
 if(offset==LIBMVL_NULL_OFFSET)return(NULL);
 
