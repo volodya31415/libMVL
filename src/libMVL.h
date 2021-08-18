@@ -352,4 +352,20 @@ LIBMVL_OFFSET64 mvl_find_directory_entry(LIBMVL_CONTEXT *ctx, const char *tag);
  */
 void mvl_load_image(LIBMVL_CONTEXT *ctx, LIBMVL_OFFSET64 length, const void *data);
 
+#define LIBMVL_SORT_LEXICOGRAPHIC	1		/* Ascending */
+#define LIBMVL_SORT_LEXICOGRAPHIC_DESC	2		/* Descending */
+
+/*
+ * This function sorts indices into a list of vectors so that the resulting permutation is ordered.
+ * The vector should all be the same length N, except LIBMVL_PACKED_LIST64 which should N+1 - this provides the same number of elements.
+ * The indices are from 0 to N-1 and can repeat.
+ * 
+ * vec_data is the pointer to mapped data range where offsets point. This is needed only for vectors of type LIBMVL_PACKED_LIST64.
+ * You can set vec_data to NULL if LIBMVL_PACKED_LIST64 vectors are not present. Also entries vec_data[i] can be NULL if the corresponding vector is not of type
+ * LIBMVL_PACKED_LIST64
+ * 
+ * This function return 0 on successful sort. If no vectors are supplies (vec_count==0) the indices are unchanged the sort is considered successful
+ */
+int mvl_sort_indices(LIBMVL_OFFSET64 indices_count, LIBMVL_OFFSET64 *indices, LIBMVL_OFFSET64 vec_count, LIBMVL_VECTOR **vec, void **vec_data, int sort_function);
+
 #endif

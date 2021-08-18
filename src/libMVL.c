@@ -833,3 +833,249 @@ for(i=0;i<ctx->dir_free;i++) {
 	ctx->directory[i].tag=memndup(a->u.b, a->header.length);
 	}
 }
+
+typedef struct {
+	LIBMVL_VECTOR **vec;
+	void **data; /* This is needed for packed vectors */
+	LIBMVL_OFFSET64 nvec;
+	} MVL_SORT_INFO;
+
+typedef struct {
+	LIBMVL_OFFSET64 index;
+	MVL_SORT_INFO *info;
+	} MVL_SORT_UNIT;
+	
+int mvl_lexicographic_cmp(MVL_SORT_UNIT *a, MVL_SORT_UNIT *b)
+{
+LIBMVL_OFFSET64 i, ai, bi;
+LIBMVL_OFFSET64 N=a->info->nvec;
+LIBMVL_VECTOR *vec;
+ai=a->index;
+bi=b->index;
+for(i=0;i<N;i++) {
+	vec=a->info->vec[i];
+		
+	switch(mvl_vector_type(vec)) {
+		case LIBMVL_VECTOR_CSTRING:
+		case LIBMVL_VECTOR_UINT8: {
+			unsigned char ad, bd;
+			ad=mvl_vector_data(vec).b[ai];
+			bd=mvl_vector_data(vec).b[bi];
+			if(ad<bd)return -1;
+			if(ad>bd)return 1;
+			break;
+			}
+		case LIBMVL_VECTOR_INT32: {
+			int ad, bd;
+			ad=mvl_vector_data(vec).i[ai];
+			bd=mvl_vector_data(vec).i[bi];
+			if(ad<bd)return -1;
+			if(ad>bd)return 1;
+			break;
+			}
+		case LIBMVL_VECTOR_FLOAT: {
+			float ad, bd;
+			ad=mvl_vector_data(vec).f[ai];
+			bd=mvl_vector_data(vec).f[bi];
+			if(ad<bd)return -1;
+			if(ad>bd)return 1;
+			break;
+			}
+		case LIBMVL_VECTOR_INT64: {
+			long long ad, bd;
+			ad=mvl_vector_data(vec).i64[ai];
+			bd=mvl_vector_data(vec).i64[bi];
+			if(ad<bd)return -1;
+			if(ad>bd)return 1;
+			break;
+			}
+		case LIBMVL_VECTOR_DOUBLE: {
+			double ad, bd;
+			ad=mvl_vector_data(vec).d[ai];
+			bd=mvl_vector_data(vec).d[bi];
+			if(ad<bd)return -1;
+			if(ad>bd)return 1;
+			break;
+			}
+		case LIBMVL_VECTOR_OFFSET64: {
+			LIBMVL_OFFSET64 ad, bd;
+			ad=mvl_vector_data(vec).offset[ai];
+			bd=mvl_vector_data(vec).offset[bi];
+			if(ad<bd)return -1;
+			if(ad>bd)return 1;
+			break;
+			}
+		case LIBMVL_PACKED_LIST64: {
+			LIBMVL_OFFSET64 al, bl, nn;
+			unsigned char *ad, *bd;
+			al=mvl_packed_list_get_entry_bytelength(vec, ai);
+			bl=mvl_packed_list_get_entry_bytelength(vec, bi);
+			ad=mvl_packed_list_get_entry(vec, a->info->data[i], ai);
+			bd=mvl_packed_list_get_entry(vec, a->info->data[i], bi);
+			nn=al;
+			if(bl<nn)nn=bl;
+			for(LIBMVL_OFFSET64 j=0;j<nn;j++) {
+				if(ad[j]<bd[j])return -1;
+				if(ad[j]>bd[j])return 1;
+				}
+			if(al<bl)return -1;
+			if(al>bl)return 1;
+			break;
+			}
+		default:
+			if(ai<bi)return -1;
+			if(ai>bi)return 1;
+			return(0);
+		}
+	}
+if(ai<bi)return -1;
+if(ai>bi)return 1;
+return 0;
+}
+
+int mvl_lexicographic_desc_cmp(MVL_SORT_UNIT *a, MVL_SORT_UNIT *b)
+{
+LIBMVL_OFFSET64 i, ai, bi;
+LIBMVL_OFFSET64 N=a->info->nvec;
+LIBMVL_VECTOR *vec;
+ai=a->index;
+bi=b->index;
+for(i=0;i<N;i++) {
+	vec=a->info->vec[i];
+		
+	switch(mvl_vector_type(vec)) {
+		case LIBMVL_VECTOR_CSTRING:
+		case LIBMVL_VECTOR_UINT8: {
+			unsigned char ad, bd;
+			ad=mvl_vector_data(vec).b[ai];
+			bd=mvl_vector_data(vec).b[bi];
+			if(ad<bd)return 1;
+			if(ad>bd)return -1;
+			break;
+			}
+		case LIBMVL_VECTOR_INT32: {
+			int ad, bd;
+			ad=mvl_vector_data(vec).i[ai];
+			bd=mvl_vector_data(vec).i[bi];
+			if(ad<bd)return 1;
+			if(ad>bd)return -1;
+			break;
+			}
+		case LIBMVL_VECTOR_FLOAT: {
+			float ad, bd;
+			ad=mvl_vector_data(vec).f[ai];
+			bd=mvl_vector_data(vec).f[bi];
+			if(ad<bd)return 1;
+			if(ad>bd)return -1;
+			break;
+			}
+		case LIBMVL_VECTOR_INT64: {
+			long long ad, bd;
+			ad=mvl_vector_data(vec).i64[ai];
+			bd=mvl_vector_data(vec).i64[bi];
+			if(ad<bd)return 1;
+			if(ad>bd)return -1;
+			break;
+			}
+		case LIBMVL_VECTOR_DOUBLE: {
+			double ad, bd;
+			ad=mvl_vector_data(vec).d[ai];
+			bd=mvl_vector_data(vec).d[bi];
+			if(ad<bd)return 1;
+			if(ad>bd)return -1;
+			break;
+			}
+		case LIBMVL_VECTOR_OFFSET64: {
+			LIBMVL_OFFSET64 ad, bd;
+			ad=mvl_vector_data(vec).offset[ai];
+			bd=mvl_vector_data(vec).offset[bi];
+			if(ad<bd)return 1;
+			if(ad>bd)return -1;
+			break;
+			}
+		case LIBMVL_PACKED_LIST64: {
+			LIBMVL_OFFSET64 al, bl, nn;
+			unsigned char *ad, *bd;
+			al=mvl_packed_list_get_entry_bytelength(vec, ai);
+			bl=mvl_packed_list_get_entry_bytelength(vec, bi);
+			ad=mvl_packed_list_get_entry(vec, a->info->data[i], ai);
+			bd=mvl_packed_list_get_entry(vec, a->info->data[i], bi);
+			nn=al;
+			if(bl<nn)nn=bl;
+			for(LIBMVL_OFFSET64 j=0;j<nn;j++) {
+				if(ad[j]<bd[j])return 1;
+				if(ad[j]>bd[j])return -1;
+				}
+			if(al<bl)return 1;
+			if(al>bl)return -1;
+			break;
+			}
+		default:
+			if(ai<bi)return 1;
+			if(ai>bi)return -1;
+			return(0);
+		}
+	}
+if(ai<bi)return 1;
+if(ai>bi)return -1;
+return 0;
+}
+
+/*
+ * This function sorts indices into a list of vectors so that the resulting permutation is ordered.
+ * The vector should all be the same length N, except LIBMVL_PACKED_LIST64 which should N+1 - this provides the same number of elements.
+ * The indices are from 0 to N-1 and can repeat.
+ * 
+ * vec_data is the pointer to mapped data range where offsets point. This is needed only for vectors of type LIBMVL_PACKED_LIST64.
+ * You can set vec_data to NULL if LIBMVL_PACKED_LIST64 vectors are not present. Also entries vec_data[i] can be NULL if the corresponding vector is not of type
+ * LIBMVL_PACKED_LIST64
+ * 
+ * This function return 0 on successful sort. If no vectors are supplies (vec_count==0) the indices are unchanged the sort is considered successful
+ */
+int mvl_sort_indices(LIBMVL_OFFSET64 indices_count, LIBMVL_OFFSET64 *indices, LIBMVL_OFFSET64 vec_count, LIBMVL_VECTOR **vec, void **vec_data, int sort_function)
+{
+MVL_SORT_UNIT *units;
+MVL_SORT_INFO info;
+LIBMVL_OFFSET64 i, N;
+
+if(vec_count<1)return 0;
+
+info.data=vec_data;
+info.vec=vec;
+info.nvec=vec_count;
+
+units=do_malloc(indices_count, sizeof(*units));
+
+N=mvl_vector_length(vec[0]);
+//fprintf(stderr, "vec_count=%d N=%d\n", vec_count, N);
+if(mvl_vector_type(vec[0])==LIBMVL_PACKED_LIST64)N--;
+for(i=1;i<vec_count;i++) {
+	if(mvl_vector_type(vec[i])==LIBMVL_PACKED_LIST64) {
+		if(mvl_vector_length(vec[i])!=N+1)return -1;
+		if(vec_data==NULL)return -1;
+		if(vec_data[i]==NULL)return -1;
+		}
+	if(mvl_vector_length(vec[i])!=N)return -1;
+	}
+
+for(i=0;i<indices_count;i++) {
+	units[i].info=&info;
+	if(indices[i]>=N)return -1;
+	units[i].index=indices[i];
+	}
+
+switch(sort_function) {
+	case LIBMVL_SORT_LEXICOGRAPHIC:
+		qsort(units, indices_count, sizeof(*units), (int (*)(const void *, const void *))mvl_lexicographic_cmp);
+		break;
+	case LIBMVL_SORT_LEXICOGRAPHIC_DESC:
+		qsort(units, indices_count, sizeof(*units), (int (*)(const void *, const void *))mvl_lexicographic_desc_cmp);
+		break;
+	default:
+		break;
+	}
+for(i=0;i<indices_count;i++) {
+	indices[i]=units[i].index;
+	}
+return 0;
+}
