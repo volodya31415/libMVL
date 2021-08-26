@@ -170,6 +170,14 @@ void mvl_rewrite_vector(LIBMVL_CONTEXT *ctx, int type, LIBMVL_OFFSET64 base_offs
 
 
 LIBMVL_OFFSET64 mvl_write_concat_vectors(LIBMVL_CONTEXT *ctx, int type, long nvec, long *lengths, void **data, LIBMVL_OFFSET64 metadata);
+
+/* This computes vector vec[index] 
+ * Indices do not have to be distinct
+ * max_buffer is the maximum length of internal buffers in bytes (two buffers are needed for LIBMVL_PACKED_LIST64 vectors)
+ */
+LIBMVL_OFFSET64 mvl_indexed_copy_vector(LIBMVL_CONTEXT *ctx, LIBMVL_OFFSET64 index_count, LIBMVL_OFFSET64 *indices, LIBMVL_VECTOR *vec, const void *data, LIBMVL_OFFSET64 metadata, LIBMVL_OFFSET64 max_buffer);
+
+
 /* Writes a single C string. In particular, this is handy for providing metadata tags */
 /* length can be specified as -1 to be computed automatically */
 LIBMVL_OFFSET64 mvl_write_string(LIBMVL_CONTEXT *ctx, long length, const char *data, LIBMVL_OFFSET64 metadata);
@@ -367,5 +375,233 @@ void mvl_load_image(LIBMVL_CONTEXT *ctx, LIBMVL_OFFSET64 length, const void *dat
  * This function return 0 on successful sort. If no vectors are supplies (vec_count==0) the indices are unchanged the sort is considered successful
  */
 int mvl_sort_indices(LIBMVL_OFFSET64 indices_count, LIBMVL_OFFSET64 *indices, LIBMVL_OFFSET64 vec_count, LIBMVL_VECTOR **vec, void **vec_data, int sort_function);
+
+
+/* Hash function */
+
+/* This randomizes bits of 64-bit numbers. */
+static inline LIBMVL_OFFSET64 mvl_randomize_bits64(LIBMVL_OFFSET64 x)
+{
+	x^=x>>31;
+x*=18397683724573214587LLU;
+	x^=x>>32;
+x*=13397683724573242421LLU;
+	x^=x>>33;
+	return(x);
+}
+
+#define MVL_SEED_HASH_VALUE	0xabcdef
+
+/* This allows to accumulate hash value from several sources. 
+ * Initial x value can be anything except 0 
+ */
+static inline LIBMVL_OFFSET64 mvl_accumulate_hash64(LIBMVL_OFFSET64 x, const unsigned char *data, LIBMVL_OFFSET64 count)
+{
+LIBMVL_OFFSET64 i;
+for(i=0;i<count;i++) {
+	x=(x+data[i]);
+	x*=13397683724573242421LLU;
+	x^=x>>33;
+	}
+return(x);
+}
+
+/* This allows to accumulate hash value from several sources. 
+ * Initial x values can be anything except 0.
+ * The accumulation is done in place and in parallel for 8 streams, count bytes for each stream.
+ */
+static inline void mvl_accumulate_hash64x8(LIBMVL_OFFSET64 *x, const unsigned char *data0, const unsigned char *data1, const unsigned char *data2, const unsigned char *data3, const unsigned char *data4, const unsigned char *data5, const unsigned char *data6, const unsigned char *data7, LIBMVL_OFFSET64 count)
+{
+LIBMVL_OFFSET64 i, x0, x1, x2, x3, x4, x5, x6, x7;
+
+x0=x[0];
+x1=x[1];
+x2=x[2];
+x3=x[3];
+x4=x[4];
+x5=x[5];
+x6=x[6];
+x7=x[7];
+
+for(i=0;i<count;i++) {
+	#define STEP(k)  {\
+		x ## k=( (x ## k) +(data ## k)[i]); \
+		(x ## k)*=13397683724573242421LLU; \
+		(x ## k) ^= (x ## k)>>33; \
+		}
+	STEP(0)
+	STEP(1)
+	STEP(2)
+	STEP(3)
+	STEP(4)
+	STEP(5)
+	STEP(6)
+	STEP(7)
+	#undef STEP
+	}
+
+x[0]=x0;
+x[1]=x1;
+x[2]=x2;
+x[3]=x3;
+x[4]=x4;
+x[5]=x5;
+x[6]=x6;
+x[7]=x7;
+}
+
+
+/* This allows to accumulate hash value from several sources.
+ * Initial x value can be anything except 0 
+ * 
+ * This function accumulates 32-bit signed ints by value
+ */
+static inline LIBMVL_OFFSET64 mvl_accumulate_int32_hash64(LIBMVL_OFFSET64 x, const int *data, LIBMVL_OFFSET64 count)
+{
+LIBMVL_OFFSET64 i;
+long long int d;
+unsigned *d_ext=(unsigned *)&d;
+for(i=0;i<count;i++) {
+	d=data[i];
+	x=(x + d_ext[0]);
+	x*=13397683724573242421LLU;
+	x^=x>>33;
+	x=(x + d_ext[1]);
+	x*=13397683724573242421LLU;
+	x^=x>>33;
+	}
+return(x);
+}
+
+/* This allows to accumulate hash value from several sources.
+ * Initial x value can be anything except 0 
+ * 
+ * This function accumulates 64-bit signed ints by value
+ */
+static inline LIBMVL_OFFSET64 mvl_accumulate_int64_hash64(LIBMVL_OFFSET64 x, const long long int *data, LIBMVL_OFFSET64 count)
+{
+LIBMVL_OFFSET64 i;
+long long int d;
+unsigned *d_ext=(unsigned *)&d;
+for(i=0;i<count;i++) {
+	d=data[i];
+	x=(x + d_ext[0]);
+	x*=13397683724573242421LLU;
+	x^=x>>33;
+	x=(x + d_ext[1]);
+	x*=13397683724573242421LLU;
+	x^=x>>33;
+	}
+return(x);
+}
+
+/* This allows to accumulate hash value from several sources.
+ * Initial x value can be anything except 0 
+ * 
+ * This function accumulates 32-bit floats by value, so that a float promoted to double will have the same hash
+ */
+static inline LIBMVL_OFFSET64 mvl_accumulate_float_hash64(LIBMVL_OFFSET64 x, const float *data, LIBMVL_OFFSET64 count)
+{
+LIBMVL_OFFSET64 i;
+double d;
+unsigned *d_ext=(unsigned *)&d;
+for(i=0;i<count;i++) {
+	d=data[i];
+	x=(x + d_ext[0]);
+	x*=13397683724573242421LLU;
+	x^=x>>33;
+	x=(x + d_ext[1]);
+	x*=13397683724573242421LLU;
+	x^=x>>33;
+	}
+return(x);
+}
+
+/* This allows to accumulate hash value from several sources.
+ * Initial x value can be anything except 0 
+ * 
+ * This function accumulates 64-bit doubles by value, so that a float promoted to double will have the same hash as original float
+ */
+static inline LIBMVL_OFFSET64 mvl_accumulate_double_hash64(LIBMVL_OFFSET64 x, const double *data, LIBMVL_OFFSET64 count)
+{
+LIBMVL_OFFSET64 i;
+double d;
+unsigned *d_ext=(unsigned *)&d;
+for(i=0;i<count;i++) {
+	d=data[i];
+	x=(x + d_ext[0]);
+	x*=13397683724573242421LLU;
+	x^=x>>33;
+	x=(x + d_ext[1]);
+	x*=13397683724573242421LLU;
+	x^=x>>33;
+	}
+return(x);
+}
+
+/* This function is used to compute 64 bit hash of vector values
+ * array hash[] is passed in and contains the result of the computation
+ * 
+ * Integer indices are computed by value, so that 100 produces the same hash whether it is stored as INT32 or INT64.
+ * 
+ * Floats and doubles are trickier - we can guarantee that the hash of float promoted to double is the same as the hash of the original float, but not the reverse.
+ */
+int mvl_hash_indices(LIBMVL_OFFSET64 indices_count, LIBMVL_OFFSET64 *indices, LIBMVL_OFFSET64 *hash, LIBMVL_OFFSET64 vec_count, LIBMVL_VECTOR **vec, void **vec_data);
+
+/* This structure can either be allocated by libMVL or constructed by the caller 
+ * In the latter case read comments describing size constraints 
+ * 
+ * The purpose of having index_size is to facilitate memory reuse by allocating the structure with index_size large enough to accomodate subsequent calls with different index_count
+ */
+#define MVL_FLAG_OWN_HASH	(1<<0)
+#define MVL_FLAG_OWN_HASH_MAP	(1<<1)
+#define MVL_FLAG_OWN_FIRST	(1<<2)
+#define MVL_FLAG_OWN_NEXT	(1<<3)
+
+typedef struct {
+	LIBMVL_OFFSET64 flags;
+	LIBMVL_OFFSET64 hash_count;   
+	LIBMVL_OFFSET64 hash_size; /* hash_count < hash_size */
+	LIBMVL_OFFSET64 hash_map_size; /* hash_map_size > hash_count */
+	LIBMVL_OFFSET64 first_count;
+	LIBMVL_OFFSET64 *hash;     /* original hashes of entries */
+	LIBMVL_OFFSET64 *hash_map; /* has hash_map_size entries */
+	LIBMVL_OFFSET64 *first;  /* has hash_size entries */
+	LIBMVL_OFFSET64 *next; /* has hash_size entries */
+	} HASH_MAP;
+
+/* Compute suggested hash map size */
+LIBMVL_OFFSET64 mvl_compute_hash_map_size(LIBMVL_OFFSET64 hash_count);
+
+HASH_MAP *mvl_allocate_hash_map(LIBMVL_OFFSET64 max_index_count);
+void mvl_free_hash_map(HASH_MAP *hash_map);
+
+/* This uses data from hm->hash[] array */
+void mvl_compute_hash_map(HASH_MAP *hm);
+
+/* Find count of matches between hashes of two sets. 
+ */
+LIBMVL_OFFSET64 mvl_hash_match_count(LIBMVL_OFFSET64 key_count, LIBMVL_OFFSET64 *key_hash, HASH_MAP *hm);
+
+/* Find indices of keys in set of hashes, using hash map. 
+ * Only the first matching hash is reported.
+ * If not found the index is set to ~0 (0xfff...fff)
+ * Output is in key_indices 
+ */
+void mvl_find_first_hashes(LIBMVL_OFFSET64 key_count, LIBMVL_OFFSET64 *key_hash, LIBMVL_OFFSET64 *key_indices, HASH_MAP *hm);
+
+/* This function computes pairs of merge indices. The pairs are stored in key_match_indices[] and match_indices[].
+ * All arrays should be provided by the caller. The size of match_indices arrays is computed with mvl_hash_match_count()
+ * An auxiliary array key_last of length key_indices_count stores the stop before index (in terms of matches array). 
+ * In particular the total number of matches is given by key_last[key_indices_count-1]
+ */
+int mvl_find_matches(LIBMVL_OFFSET64 key_indices_count, LIBMVL_OFFSET64 *key_indices, LIBMVL_OFFSET64 key_vec_count, LIBMVL_VECTOR **key_vec, void **key_vec_data, LIBMVL_OFFSET64 *key_hash,
+			   LIBMVL_OFFSET64 indices_count, LIBMVL_OFFSET64 *indices, LIBMVL_OFFSET64 vec_count, LIBMVL_VECTOR **vec, void **vec_data, HASH_MAP *hm, 
+			   LIBMVL_OFFSET64 *key_last, LIBMVL_OFFSET64 pairs_size, LIBMVL_OFFSET64 *key_match_indices, LIBMVL_OFFSET64 *match_indices);
+
+/* This function transforms HASH_MAP into a list of groups. 
+ * After calling hm->hash_map is invalid, but hm->first and hm->next describe exactly identical rows 
+ */
+int mvl_find_groups(LIBMVL_OFFSET64 indices_count, LIBMVL_OFFSET64 *indices, LIBMVL_OFFSET64 vec_count, LIBMVL_VECTOR **vec, void **vec_data, HASH_MAP *hm);
 
 #endif
