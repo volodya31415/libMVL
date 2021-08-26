@@ -1003,41 +1003,103 @@ for(i=0;i<N;i++) {
 		case LIBMVL_VECTOR_CSTRING:
 		case LIBMVL_VECTOR_UINT8: {
 			unsigned char ad, bd;
+			if(mvl_vector_type(bvec)!=mvl_vector_type(avec))return 0;
 			ad=mvl_vector_data(avec).b[ai];
 			bd=mvl_vector_data(bvec).b[bi];
 			if(ad!=bd)return 0;
 			break;
 			}
 		case LIBMVL_VECTOR_INT32: {
-			int ad, bd;
+			int ad;
 			ad=mvl_vector_data(avec).i[ai];
-			bd=mvl_vector_data(bvec).i[bi];
-			if(ad!=bd)return 0;
-			break;
-			}
-		case LIBMVL_VECTOR_FLOAT: {
-			float ad, bd;
-			ad=mvl_vector_data(avec).f[ai];
-			bd=mvl_vector_data(bvec).f[bi];
-			if(ad!=bd)return 0;
+			switch(mvl_vector_type(bvec)) {
+				case LIBMVL_VECTOR_INT32: {
+					int bd;
+					bd=mvl_vector_data(bvec).i[bi];
+					if(ad!=bd)return 0;
+					break;
+					}
+				case LIBMVL_VECTOR_INT64: {
+					long long bd;
+					bd=mvl_vector_data(bvec).i64[bi];
+					if(ad!=bd)return 0;
+					break;
+					}
+				default:
+					return 0;
+					break;
+				}
 			break;
 			}
 		case LIBMVL_VECTOR_INT64: {
 			long long ad, bd;
 			ad=mvl_vector_data(avec).i64[ai];
-			bd=mvl_vector_data(bvec).i64[bi];
-			if(ad!=bd)return 0;
+			switch(mvl_vector_type(bvec)) {
+				case LIBMVL_VECTOR_INT32: {
+					int bd;
+					bd=mvl_vector_data(bvec).i[bi];
+					if(ad!=bd)return 0;
+					break;
+					}
+				case LIBMVL_VECTOR_INT64: {
+					long long bd;
+					bd=mvl_vector_data(bvec).i64[bi];
+					if(ad!=bd)return 0;
+					break;
+					}
+				default:
+					return 0;
+					break;
+				}
+			break;
+			}
+		case LIBMVL_VECTOR_FLOAT: {
+			float ad;
+			ad=mvl_vector_data(avec).f[ai];
+			switch(mvl_vector_type(bvec)) {
+				case LIBMVL_VECTOR_FLOAT: {
+					float bd;
+					bd=mvl_vector_data(bvec).f[bi];
+					if(ad!=bd)return 0;
+					break;
+					}
+				case LIBMVL_VECTOR_DOUBLE: {
+					double bd;
+					bd=mvl_vector_data(bvec).d[bi];
+					if((double)ad!=bd)return 0;
+					break;
+					}
+				default:
+					return 0;
+					break;
+				}
 			break;
 			}
 		case LIBMVL_VECTOR_DOUBLE: {
-			double ad, bd;
+			double ad;
 			ad=mvl_vector_data(avec).d[ai];
-			bd=mvl_vector_data(bvec).d[bi];
-			if(ad!=bd)return 0;
+			switch(mvl_vector_type(bvec)) {
+				case LIBMVL_VECTOR_FLOAT: {
+					double bd;
+					bd=mvl_vector_data(bvec).f[bi];
+					if(ad!=bd)return 0;
+					break;
+					}
+				case LIBMVL_VECTOR_DOUBLE: {
+					double bd;
+					bd=mvl_vector_data(bvec).d[bi];
+					if(ad!=bd)return 0;
+					break;
+					}
+				default:
+					return 0;
+					break;
+				}
 			break;
 			}
 		case LIBMVL_VECTOR_OFFSET64: {
 			LIBMVL_OFFSET64 ad, bd;
+			if(mvl_vector_type(bvec)!=mvl_vector_type(avec))return 0;
 			ad=mvl_vector_data(avec).offset[ai];
 			bd=mvl_vector_data(bvec).offset[bi];
 			if(ad!=bd)return 0;
@@ -1046,6 +1108,7 @@ for(i=0;i<N;i++) {
 		case LIBMVL_PACKED_LIST64: {
 			LIBMVL_OFFSET64 al, bl, nn;
 			const unsigned char *ad, *bd;
+			if(mvl_vector_type(bvec)!=mvl_vector_type(avec))return 0;
 			al=mvl_packed_list_get_entry_bytelength(avec, ai);
 			bl=mvl_packed_list_get_entry_bytelength(bvec, bi);
 			ad=mvl_packed_list_get_entry(avec, a->info->data[i], ai);
@@ -1644,7 +1707,7 @@ return(0);
 /* This functions transforms HASH_MAP into a list of groups. 
  * After calling hm->hash_map is invalid, but hm->first and hm->next describe exactly identical rows 
  */
-int mvl_find_groups(LIBMVL_OFFSET64 indices_count, LIBMVL_OFFSET64 *indices, LIBMVL_OFFSET64 vec_count, LIBMVL_VECTOR **vec, void **vec_data, HASH_MAP *hm)
+void mvl_find_groups(LIBMVL_OFFSET64 indices_count, LIBMVL_OFFSET64 *indices, LIBMVL_OFFSET64 vec_count, LIBMVL_VECTOR **vec, void **vec_data, HASH_MAP *hm)
 {
 LIBMVL_OFFSET64 *hash, *tmp, *next;
 LIBMVL_OFFSET64 i, j, l, m, k, group_count, first_count, a;
@@ -1679,7 +1742,7 @@ for(i=0;i<first_count;i++) {
 		su1.index=tmp[0];
 		while(l<=m) {
 			su2.index=tmp[l];
-			if((hash[tmp[0]]!=hash[tmp[l]] || !mvl_equals(&su1, &su2))) {
+			if(hash[tmp[0]]!=hash[tmp[l]] || !mvl_equals(&su1, &su2)) {
 				if(l<m) {
 					a=tmp[m];
 					tmp[m]=tmp[l];
