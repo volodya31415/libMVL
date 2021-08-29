@@ -314,13 +314,18 @@ while(i_start<index_count) {
 				mvl_rewrite_vector(ctx, LIBMVL_VECTOR_UINT8, char_offset, char_start, i, mvl_packed_list_get_entry(vec, data, indices[i_start]));
 				po[0]=char_start+char_offset+sizeof(LIBMVL_VECTOR_HEADER);				
 				mvl_rewrite_vector(ctx, mvl_vector_type(vec), offset, i_start+1, 1, po);
+				i_start++;
 				break;
 				}
 			N=0;
-			for(i=0;(i<char_buf_length) && (N<vec_buf_length) && (i_start+N<index_count);i+=mvl_packed_list_get_entry_bytelength(vec, indices[i_start+N])) {
-				N++;
+			for(i=0;(i<char_buf_length) && (N<vec_buf_length) && (i_start+N<index_count);i+=mvl_packed_list_get_entry_bytelength(vec, indices[i_start+N]), N++) {
 				}
+			if(i>char_buf_length)N--;
+// 			fprintf(stderr, "buffer plan N=%lld vec_buf_length=%lld i=%lld char_buf_length=%lld\n", N, vec_buf_length, i, char_buf_length);
 			//fprintf(stderr, "packed_list i=%lld N=%lld char_buf_len=%lld vec_buf_len=%lld index_count=%lld\n", i, N, char_buf_length, vec_buf_length, index_count);
+// 			if(N>vec_buf_length) {
+// 				fprintf(stderr, "*** INTERNAL ERROR: buffer overrun N=%lld vec_buf_length=%lld\n", N, vec_buf_length);
+// 				}
 			k=0;
 			for(i=0;i<N;i++) {
 				m=mvl_packed_list_get_entry_bytelength(vec, indices[i_start+i]);
@@ -328,6 +333,9 @@ while(i_start<index_count) {
 				k+=m;
 				po[i]=char_offset+char_start+sizeof(LIBMVL_VECTOR_HEADER)+k;
 				}
+// 			if(k>char_buf_length) {
+// 				fprintf(stderr, "*** INTERNAL ERROR: buffer overrun k=%lld char_buf_length=%lld N=%lld vec_buf_length=%lld\n", k, char_buf_length, N, vec_buf_length);
+// 				}
 			//fprintf(stderr, "packed_list i=%lld N=%lld k=%lld char_buf_len=%lld vec_buf_len=%lld\n", i, N, k, char_buf_length, vec_buf_length);
 			mvl_rewrite_vector(ctx, LIBMVL_VECTOR_UINT8, char_offset, char_start, k, char_buffer);
 			mvl_rewrite_vector(ctx, mvl_vector_type(vec), offset, i_start+1, N, po);
