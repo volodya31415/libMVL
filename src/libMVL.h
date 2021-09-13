@@ -6,6 +6,10 @@
 #include <stdio.h>
 #include <math.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* Mappable Vector Library - 
  * a structured file format which can be efficiently used 
  * after read-only memory mapping, and can be appended while mapped, 
@@ -603,5 +607,9 @@ int mvl_find_matches(LIBMVL_OFFSET64 key_indices_count, LIBMVL_OFFSET64 *key_ind
  * After calling hm->hash_map is invalid, but hm->first and hm->next describe exactly identical rows 
  */
 void mvl_find_groups(LIBMVL_OFFSET64 indices_count, LIBMVL_OFFSET64 *indices, LIBMVL_OFFSET64 vec_count, LIBMVL_VECTOR **vec, void **vec_data, HASH_MAP *hm);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
