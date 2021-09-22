@@ -394,6 +394,19 @@ x*=13397683724573242421LLU;
 	return(x);
 }
 
+/* 32 bit primes: 2147483629 2147483647 */
+
+/* Untested for randomization quality */
+static inline unsigned mvl_randomize_bits32(unsigned x)
+{
+	x^=x>>15;
+x*=2354983627LLU;
+	x^=x>>14;
+x*=2554984639LLU;
+	x^=x>>13;
+	return(x);
+}
+
 #define MVL_SEED_HASH_VALUE	0xabcdef
 
 /* This allows to accumulate hash value from several sources. 
@@ -607,6 +620,17 @@ int mvl_find_matches(LIBMVL_OFFSET64 key_indices_count, LIBMVL_OFFSET64 *key_ind
  * After calling hm->hash_map is invalid, but hm->first and hm->next describe exactly identical rows 
  */
 void mvl_find_groups(LIBMVL_OFFSET64 indices_count, LIBMVL_OFFSET64 *indices, LIBMVL_OFFSET64 vec_count, LIBMVL_VECTOR **vec, void **vec_data, HASH_MAP *hm);
+
+typedef struct {
+	double max;
+	double min;
+	double center;
+	double scale;
+	} LIBMVL_VEC_STATS;
+
+void mvl_compute_vec_stats(LIBMVL_VECTOR *vec, LIBMVL_VEC_STATS *stats);
+/* i0 and i1 denote the range of values to normalize. This allows to process vector one buffer at a time */
+void mvl_normalize_vector(LIBMVL_VECTOR *vec, LIBMVL_VEC_STATS *stats, LIBMVL_OFFSET64 i0, LIBMVL_OFFSET64 i1, double *out);
 
 #ifdef __cplusplus
 }
