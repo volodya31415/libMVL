@@ -263,7 +263,7 @@ byte_length=length*elt_size;
 if(byte_length>0)mvl_rewrite(ctx, base_offset+elt_size*idx+sizeof(ctx->tmp_vh), byte_length, data);
 }
 
-LIBMVL_OFFSET64 mvl_indexed_copy_vector(LIBMVL_CONTEXT *ctx, LIBMVL_OFFSET64 index_count, LIBMVL_OFFSET64 *indices, LIBMVL_VECTOR *vec, const void *data, LIBMVL_OFFSET64 metadata, LIBMVL_OFFSET64 max_buffer)
+LIBMVL_OFFSET64 mvl_indexed_copy_vector(LIBMVL_CONTEXT *ctx, LIBMVL_OFFSET64 index_count, const LIBMVL_OFFSET64 *indices, const LIBMVL_VECTOR *vec, const void *data, LIBMVL_OFFSET64 metadata, LIBMVL_OFFSET64 max_buffer)
 {
 LIBMVL_OFFSET64 char_length, vec_length, i, m, k, i_start, char_start, char_buf_length, vec_buf_length, N;
 LIBMVL_OFFSET64 offset, char_offset;
@@ -413,7 +413,7 @@ free(char_buffer);
 return(offset);
 }
 
-LIBMVL_OFFSET64 mvl_write_concat_vectors(LIBMVL_CONTEXT *ctx, int type, long nvec, long *lengths, void **data, LIBMVL_OFFSET64 metadata)
+LIBMVL_OFFSET64 mvl_write_concat_vectors(LIBMVL_CONTEXT *ctx, int type, long nvec, const long *lengths, void **data, LIBMVL_OFFSET64 metadata)
 {
 LIBMVL_OFFSET64 byte_length, length;
 int padding, item_size;
@@ -543,7 +543,7 @@ switch(type) {
 	
 }
 
-LIBMVL_OFFSET64 mvl_write_packed_list(LIBMVL_CONTEXT *ctx, long count, long *str_size,  char **str, LIBMVL_OFFSET64 metadata)
+LIBMVL_OFFSET64 mvl_write_packed_list(LIBMVL_CONTEXT *ctx, long count, const long *str_size,  char **str, LIBMVL_OFFSET64 metadata)
 {
 LIBMVL_OFFSET64 *ofsv, ofs1, ofs2, len1;
 long *str_size2;
@@ -923,13 +923,13 @@ return(p->length>>1);
 LIBMVL_OFFSET64 mvl_directory_tag(const void *data, int i)
 {
 LIBMVL_VECTOR *p=(LIBMVL_VECTOR *)data;
-return(p->u.offset[i]);
+return(mvl_vector_data(p).offset[i]);
 }
 
 LIBMVL_OFFSET64 mvl_directory_entry(void *data, int i)
 {
 LIBMVL_VECTOR *p=(LIBMVL_VECTOR *)data;
-return(p->u.offset[i+(p->header.length>>1)]);
+return(mvl_vector_data(p).offset[i+(p->header.length>>1)]);
 }
 
 LIBMVL_OFFSET64 mvl_find_directory_entry(LIBMVL_CONTEXT *ctx, const char *tag)
@@ -981,9 +981,9 @@ if(ctx->dir_free >= ctx->dir_size) {
 	}
 	
 for(i=0;i<ctx->dir_free;i++) {
-	ctx->directory[i].offset=dir->u.offset[i+ctx->dir_free];
-	a=(LIBMVL_VECTOR *)&(((unsigned char *)data)[dir->u.offset[i]]);
-	ctx->directory[i].tag=memndup(a->u.b, a->header.length);
+	ctx->directory[i].offset=mvl_vector_data(dir).offset[i+ctx->dir_free];
+	a=(LIBMVL_VECTOR *)&(((unsigned char *)data)[mvl_vector_data(dir).offset[i]]);
+	ctx->directory[i].tag=memndup(mvl_vector_data(a).b, a->header.length);
 	}
 }
 
@@ -1388,7 +1388,7 @@ return 0;
  * 
  * Floats and doubles are trickier - we can guarantee that the hash of float promoted to double is the same as the hash of the original float, but not the reverse.
  */
-int mvl_hash_indices(LIBMVL_OFFSET64 indices_count, LIBMVL_OFFSET64 *indices, LIBMVL_OFFSET64 *hash, LIBMVL_OFFSET64 vec_count, LIBMVL_VECTOR **vec, void **vec_data)
+int mvl_hash_indices(LIBMVL_OFFSET64 indices_count, const LIBMVL_OFFSET64 *indices, LIBMVL_OFFSET64 *hash, LIBMVL_OFFSET64 vec_count, LIBMVL_VECTOR **vec, void **vec_data)
 {
 LIBMVL_OFFSET64 i, j, N;
 
@@ -1573,7 +1573,7 @@ hm->first_count=N_first;
 
 /* Find count of matches between hashes of two sets. 
  */
-LIBMVL_OFFSET64 mvl_hash_match_count(LIBMVL_OFFSET64 key_count, LIBMVL_OFFSET64 *key_hash, HASH_MAP *hm)
+LIBMVL_OFFSET64 mvl_hash_match_count(LIBMVL_OFFSET64 key_count, const LIBMVL_OFFSET64 *key_hash, HASH_MAP *hm)
 {
 LIBMVL_OFFSET64 i, k, hash_mask, match_count;
 LIBMVL_OFFSET64 *hash_map, *next, *hash;
@@ -1613,7 +1613,7 @@ return(match_count);
  * If not found the index is set to ~0 (0xfff...fff)
  * Output is in key_indices 
  */
-void mvl_find_first_hashes(LIBMVL_OFFSET64 key_count, LIBMVL_OFFSET64 *key_hash, LIBMVL_OFFSET64 *key_indices, HASH_MAP *hm)
+void mvl_find_first_hashes(LIBMVL_OFFSET64 key_count, const LIBMVL_OFFSET64 *key_hash, LIBMVL_OFFSET64 *key_indices, HASH_MAP *hm)
 {
 LIBMVL_OFFSET64 i, k, hash_mask, hash_map_size;
 LIBMVL_OFFSET64 *hash_map, *next, *hash;
@@ -1651,8 +1651,8 @@ if(hash_map_size & hash_mask) {
  * An auxiliary array key_last of length key_indices_count stores the stop before index (in terms of matches array). 
  * In particular the total number of matches is given by key_last[key_indices_count-1]
  */
-int mvl_find_matches(LIBMVL_OFFSET64 key_indices_count, LIBMVL_OFFSET64 *key_indices, LIBMVL_OFFSET64 key_vec_count, LIBMVL_VECTOR **key_vec, void **key_vec_data, LIBMVL_OFFSET64 *key_hash,
-			   LIBMVL_OFFSET64 indices_count, LIBMVL_OFFSET64 *indices, LIBMVL_OFFSET64 vec_count, LIBMVL_VECTOR **vec, void **vec_data, HASH_MAP *hm, 
+int mvl_find_matches(LIBMVL_OFFSET64 key_indices_count, const LIBMVL_OFFSET64 *key_indices, LIBMVL_OFFSET64 key_vec_count, LIBMVL_VECTOR **key_vec, void **key_vec_data, LIBMVL_OFFSET64 *key_hash,
+			   LIBMVL_OFFSET64 indices_count, const LIBMVL_OFFSET64 *indices, LIBMVL_OFFSET64 vec_count, LIBMVL_VECTOR **vec, void **vec_data, HASH_MAP *hm, 
 			   LIBMVL_OFFSET64 *key_last, LIBMVL_OFFSET64 pairs_size, LIBMVL_OFFSET64 *key_match_indices, LIBMVL_OFFSET64 *match_indices)
 {
 LIBMVL_OFFSET64 *hash, *hash_map, *next;
@@ -1718,7 +1718,7 @@ return(0);
 /* This function transforms HASH_MAP into a list of groups. 
  * After calling hm->hash_map becomes invalid, but hm->first and hm->next describe exactly identical rows 
  */
-void mvl_find_groups(LIBMVL_OFFSET64 indices_count, LIBMVL_OFFSET64 *indices, LIBMVL_OFFSET64 vec_count, LIBMVL_VECTOR **vec, void **vec_data, HASH_MAP *hm)
+void mvl_find_groups(LIBMVL_OFFSET64 indices_count, const LIBMVL_OFFSET64 *indices, LIBMVL_OFFSET64 vec_count, LIBMVL_VECTOR **vec, void **vec_data, HASH_MAP *hm)
 {
 LIBMVL_OFFSET64 *hash, *tmp, *next;
 LIBMVL_OFFSET64 i, j, l, m, k, group_count, first_count, a;
@@ -1781,7 +1781,7 @@ for(i=0;i<first_count;i++) {
 hm->first_count=group_count;
 }
 
-void mvl_compute_vec_stats(LIBMVL_VECTOR *vec, LIBMVL_VEC_STATS *stats)
+void mvl_compute_vec_stats(const LIBMVL_VECTOR *vec, LIBMVL_VEC_STATS *stats)
 {
 if(mvl_vector_length(vec)<1) {
 	stats->max=-1;
@@ -1875,7 +1875,7 @@ switch(mvl_vector_type(vec)) {
 	}
 }
 
-void mvl_normalize_vector(LIBMVL_VECTOR *vec, LIBMVL_VEC_STATS *stats, LIBMVL_OFFSET64 i0, LIBMVL_OFFSET64 i1, double *out)
+void mvl_normalize_vector(const LIBMVL_VECTOR *vec, const LIBMVL_VEC_STATS *stats, LIBMVL_OFFSET64 i0, LIBMVL_OFFSET64 i1, double *out)
 {
 double scale, center;
 scale=0.5*stats->scale;

@@ -85,6 +85,29 @@ typedef struct {
 	LIBMVL_OFFSET64 metadata;
 	} LIBMVL_VECTOR_HEADER;
 	
+	
+#ifndef MVL_STATIC_MEMBERS
+#ifdef __SANITIZE_ADDRESS__
+#define MVL_STATIC_MEMBERS 0
+#else
+#ifdef __clang__
+#if __has_feature(address_sanitizer)
+#define MVL_STATIC_MEMBERS 0
+#else
+#define MVL_STATIC_MEMBERS 1
+#endif
+#else
+#define MVL_STATIC_MEMBERS 1
+#endif
+#endif	
+#endif
+	
+#if MVL_STATIC_MEMBERS
+/* This short and concise definition is portable and works with older compilers.
+ * However, when the code is instrumented with an address sanitizer it chokes on it 
+ * thinking that data arrays are smaller than they are.
+ */
+	
 typedef struct {
 	LIBMVL_VECTOR_HEADER header;
 	union {
@@ -96,6 +119,42 @@ typedef struct {
 		LIBMVL_OFFSET64 offset[1];
 		} u;
 	} LIBMVL_VECTOR;
+	
+#else
+/* This requires flexible array members and unnamed structs and unions which only appear in C11 standard 
+ * The complexity arises because the standard does not allow flexible array members in a union which makes it cumbersome 
+ * to describe variable size payloads.
+ */
+	
+typedef struct {
+	union {
+		struct {
+		LIBMVL_VECTOR_HEADER header;
+		unsigned char b[];
+		};
+		struct {
+		LIBMVL_VECTOR_HEADER header1;
+		int i[];
+		};
+		struct {
+		LIBMVL_VECTOR_HEADER header2;
+		long long i64[];
+		};
+		struct {
+		LIBMVL_VECTOR_HEADER header3;
+		float f[];
+		};
+		struct {
+		LIBMVL_VECTOR_HEADER header4;
+		double d[];
+		};
+		struct {
+		LIBMVL_VECTOR_HEADER header5;
+		LIBMVL_OFFSET64 offset[];
+		};
+		};
+	} LIBMVL_VECTOR;
+#endif
 
 typedef struct {
 	LIBMVL_OFFSET64 offset;
@@ -173,13 +232,13 @@ LIBMVL_OFFSET64 mvl_start_write_vector(LIBMVL_CONTEXT *ctx, int type, long expec
 void mvl_rewrite_vector(LIBMVL_CONTEXT *ctx, int type, LIBMVL_OFFSET64 base_offset, LIBMVL_OFFSET64 idx, long length, const void *data);
 
 
-LIBMVL_OFFSET64 mvl_write_concat_vectors(LIBMVL_CONTEXT *ctx, int type, long nvec, long *lengths, void **data, LIBMVL_OFFSET64 metadata);
+LIBMVL_OFFSET64 mvl_write_concat_vectors(LIBMVL_CONTEXT *ctx, int type, long nvec, const long *lengths, void **data, LIBMVL_OFFSET64 metadata);
 
 /* This computes vector vec[index] 
  * Indices do not have to be distinct
  * max_buffer is the maximum length of internal buffers in bytes (two buffers are needed for LIBMVL_PACKED_LIST64 vectors)
  */
-LIBMVL_OFFSET64 mvl_indexed_copy_vector(LIBMVL_CONTEXT *ctx, LIBMVL_OFFSET64 index_count, LIBMVL_OFFSET64 *indices, LIBMVL_VECTOR *vec, const void *data, LIBMVL_OFFSET64 metadata, LIBMVL_OFFSET64 max_buffer);
+LIBMVL_OFFSET64 mvl_indexed_copy_vector(LIBMVL_CONTEXT *ctx, LIBMVL_OFFSET64 index_count, const LIBMVL_OFFSET64 *indices, const LIBMVL_VECTOR *vec, const void *data, LIBMVL_OFFSET64 metadata, LIBMVL_OFFSET64 max_buffer);
 
 
 /* Writes a single C string. In particular, this is handy for providing metadata tags */
@@ -192,7 +251,7 @@ LIBMVL_OFFSET64 mvl_write_cached_string(LIBMVL_CONTEXT *ctx, long length, const 
 /* Create a packed list of strings 
  * str_size can be either NULL or provide string length, some of which can be -1 
  */
-LIBMVL_OFFSET64 mvl_write_packed_list(LIBMVL_CONTEXT *ctx, long count, long *str_size, char **str, LIBMVL_OFFSET64 metadata);
+LIBMVL_OFFSET64 mvl_write_packed_list(LIBMVL_CONTEXT *ctx, long count, const long *str_size, char **str, LIBMVL_OFFSET64 metadata);
 
 /* This is convenient for writing several values of the same type as vector without allocating a temporary array.
  * This function creates the array internally using alloca().
@@ -247,7 +306,11 @@ void mvl_write_postamble(LIBMVL_CONTEXT *ctx);
 
 #define mvl_vector_type(data)   (((LIBMVL_VECTOR_HEADER *)(data))->type)
 #define mvl_vector_length(data)   (((LIBMVL_VECTOR_HEADER *)(data))->length)
+#if MVL_STATIC_MEMBERS
 #define mvl_vector_data(data)   ((((LIBMVL_VECTOR *)(data))->u))
+#else
+#define mvl_vector_data(data)   (*(((LIBMVL_VECTOR *)(data))))
+#endif
 #define mvl_vector_metadata_offset(data)   ((((LIBMVL_VECTOR_HEADER *)(data))->metadata))
 
 /* These two convenience functions are meant for retrieving a few values, such as stored configuration parameters.
@@ -335,7 +398,7 @@ vec=(LIBMVL_VECTOR *)&(((char *)data)[ofs]);
 return(mvl_as_offset(vec, idx));
 }
 
-static inline LIBMVL_OFFSET64 mvl_packed_list_get_entry_bytelength(LIBMVL_VECTOR *vec, LIBMVL_OFFSET64 idx)
+static inline LIBMVL_OFFSET64 mvl_packed_list_get_entry_bytelength(const LIBMVL_VECTOR *vec, LIBMVL_OFFSET64 idx)
 {
 LIBMVL_OFFSET64 start, stop, len;
 if(mvl_vector_type(vec)!=LIBMVL_PACKED_LIST64)return -1;
@@ -347,7 +410,7 @@ return(stop-start);
 }
 
 /* This returns char even though the underlying type can be different - we just want the pointer */
-static inline const char * mvl_packed_list_get_entry(LIBMVL_VECTOR *vec, const void *data, LIBMVL_OFFSET64 idx)
+static inline const char * mvl_packed_list_get_entry(const LIBMVL_VECTOR *vec, const void *data, LIBMVL_OFFSET64 idx)
 {
 LIBMVL_OFFSET64 start, len;
 if(mvl_vector_type(vec)!=LIBMVL_PACKED_LIST64)return NULL;
@@ -563,7 +626,7 @@ return(x);
  * 
  * Floats and doubles are trickier - we can guarantee that the hash of float promoted to double is the same as the hash of the original float, but not the reverse.
  */
-int mvl_hash_indices(LIBMVL_OFFSET64 indices_count, LIBMVL_OFFSET64 *indices, LIBMVL_OFFSET64 *hash, LIBMVL_OFFSET64 vec_count, LIBMVL_VECTOR **vec, void **vec_data);
+int mvl_hash_indices(LIBMVL_OFFSET64 indices_count, const LIBMVL_OFFSET64 *indices, LIBMVL_OFFSET64 *hash, LIBMVL_OFFSET64 vec_count, LIBMVL_VECTOR **vec, void **vec_data);
 
 /* This structure can either be allocated by libMVL or constructed by the caller 
  * In the latter case read comments describing size constraints 
@@ -598,28 +661,28 @@ void mvl_compute_hash_map(HASH_MAP *hm);
 
 /* Find count of matches between hashes of two sets. 
  */
-LIBMVL_OFFSET64 mvl_hash_match_count(LIBMVL_OFFSET64 key_count, LIBMVL_OFFSET64 *key_hash, HASH_MAP *hm);
+LIBMVL_OFFSET64 mvl_hash_match_count(LIBMVL_OFFSET64 key_count, const LIBMVL_OFFSET64 *key_hash, HASH_MAP *hm);
 
 /* Find indices of keys in set of hashes, using hash map. 
  * Only the first matching hash is reported.
  * If not found the index is set to ~0 (0xfff...fff)
  * Output is in key_indices 
  */
-void mvl_find_first_hashes(LIBMVL_OFFSET64 key_count, LIBMVL_OFFSET64 *key_hash, LIBMVL_OFFSET64 *key_indices, HASH_MAP *hm);
+void mvl_find_first_hashes(LIBMVL_OFFSET64 key_count, const LIBMVL_OFFSET64 *key_hash, LIBMVL_OFFSET64 *key_indices, HASH_MAP *hm);
 
 /* This function computes pairs of merge indices. The pairs are stored in key_match_indices[] and match_indices[].
  * All arrays should be provided by the caller. The size of match_indices arrays is computed with mvl_hash_match_count()
  * An auxiliary array key_last of length key_indices_count stores the stop before index (in terms of matches array). 
  * In particular the total number of matches is given by key_last[key_indices_count-1]
  */
-int mvl_find_matches(LIBMVL_OFFSET64 key_indices_count, LIBMVL_OFFSET64 *key_indices, LIBMVL_OFFSET64 key_vec_count, LIBMVL_VECTOR **key_vec, void **key_vec_data, LIBMVL_OFFSET64 *key_hash,
-			   LIBMVL_OFFSET64 indices_count, LIBMVL_OFFSET64 *indices, LIBMVL_OFFSET64 vec_count, LIBMVL_VECTOR **vec, void **vec_data, HASH_MAP *hm, 
+int mvl_find_matches(LIBMVL_OFFSET64 key_indices_count, const LIBMVL_OFFSET64 *key_indices, LIBMVL_OFFSET64 key_vec_count, LIBMVL_VECTOR **key_vec, void **key_vec_data, LIBMVL_OFFSET64 *key_hash,
+			   LIBMVL_OFFSET64 indices_count, const LIBMVL_OFFSET64 *indices, LIBMVL_OFFSET64 vec_count, LIBMVL_VECTOR **vec, void **vec_data, HASH_MAP *hm, 
 			   LIBMVL_OFFSET64 *key_last, LIBMVL_OFFSET64 pairs_size, LIBMVL_OFFSET64 *key_match_indices, LIBMVL_OFFSET64 *match_indices);
 
 /* This function transforms HASH_MAP into a list of groups. 
  * After calling hm->hash_map is invalid, but hm->first and hm->next describe exactly identical rows 
  */
-void mvl_find_groups(LIBMVL_OFFSET64 indices_count, LIBMVL_OFFSET64 *indices, LIBMVL_OFFSET64 vec_count, LIBMVL_VECTOR **vec, void **vec_data, HASH_MAP *hm);
+void mvl_find_groups(LIBMVL_OFFSET64 indices_count, const LIBMVL_OFFSET64 *indices, LIBMVL_OFFSET64 vec_count, LIBMVL_VECTOR **vec, void **vec_data, HASH_MAP *hm);
 
 typedef struct {
 	double max;
@@ -628,9 +691,9 @@ typedef struct {
 	double scale;
 	} LIBMVL_VEC_STATS;
 
-void mvl_compute_vec_stats(LIBMVL_VECTOR *vec, LIBMVL_VEC_STATS *stats);
+void mvl_compute_vec_stats(const LIBMVL_VECTOR *vec, LIBMVL_VEC_STATS *stats);
 /* i0 and i1 denote the range of values to normalize. This allows to process vector one buffer at a time */
-void mvl_normalize_vector(LIBMVL_VECTOR *vec, LIBMVL_VEC_STATS *stats, LIBMVL_OFFSET64 i0, LIBMVL_OFFSET64 i1, double *out);
+void mvl_normalize_vector(const LIBMVL_VECTOR *vec, const LIBMVL_VEC_STATS *stats, LIBMVL_OFFSET64 i0, LIBMVL_OFFSET64 i1, double *out);
 
 #ifdef __cplusplus
 }
