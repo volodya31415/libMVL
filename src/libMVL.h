@@ -40,7 +40,9 @@ first 0 byte */
  */
 #define LIBMVL_PACKED_LIST64 	102     
 
-#define LIBMVL_VECTOR_POSTAMBLE 1000
+
+#define LIBMVL_VECTOR_POSTAMBLE1 1000		/* Old format using DIRECTORY_ENTRY */
+#define LIBMVL_VECTOR_POSTAMBLE2 1001		/* New format using named list */
 
 static inline int mvl_element_size(int type) 
 {
@@ -172,17 +174,14 @@ typedef struct {
 	
 	long *next_item;
 	long *first_item;
-	long hash_size;
-	long hash_mult;
+	LIBMVL_OFFSET64 hash_size;
 	} LIBMVL_NAMED_LIST;
 	
 typedef struct {
 	int alignment;
 	int error;
 
-	long dir_size;
-	long dir_free;
-	LIBMVL_DIRECTORY_ENTRY *directory;	
+	LIBMVL_NAMED_LIST *directory;	
 	LIBMVL_OFFSET64 directory_offset;
 
 	LIBMVL_NAMED_LIST *cached_strings;
@@ -269,9 +268,17 @@ LIBMVL_OFFSET64 mvl_write_directory(LIBMVL_CONTEXT *ctx);
 
 LIBMVL_NAMED_LIST *mvl_create_named_list(int size);
 void mvl_free_named_list(LIBMVL_NAMED_LIST *L);
+
+/* By default named lists are created by mvl_create_named_list() without a hash table, to make adding elements faster 
+ * Calling this function creates the hash table. 
+ * Note that functions reading lists from MVL files create hash table automatically.
+ */
+void mvl_recompute_named_list_hash(LIBMVL_NAMED_LIST *L);
+
 long mvl_add_list_entry(LIBMVL_NAMED_LIST *L, long tag_length, const char *tag, LIBMVL_OFFSET64 offset);
 LIBMVL_OFFSET64 mvl_find_list_entry(LIBMVL_NAMED_LIST *L, long tag_length, const char *tag);
 LIBMVL_OFFSET64 mvl_write_attributes_list(LIBMVL_CONTEXT *ctx, LIBMVL_NAMED_LIST *L);
+
 /* This is meant to operate on memory mapped (or in-memory) files */
 LIBMVL_NAMED_LIST *mvl_read_attributes_list(LIBMVL_CONTEXT *ctx, const void *data, LIBMVL_OFFSET64 metadata_offset);
 
