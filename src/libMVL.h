@@ -159,11 +159,6 @@ typedef struct {
 #endif
 
 typedef struct {
-	LIBMVL_OFFSET64 offset;
-	char *tag;
-	} LIBMVL_DIRECTORY_ENTRY;
-	
-typedef struct {
 	long size;
 	long free;
 	LIBMVL_OFFSET64 *offset;
@@ -215,12 +210,14 @@ typedef struct {
 #define LIBMVL_ERR_INVALID_ATTR		-14
 #define LIBMVL_ERR_CANNOT_SEEK		-15
 #define LIBMVL_ERR_INVALID_PARAMETER	-16
+#define LIBMVL_ERR_INVALID_LENGTH	-17
 	
 LIBMVL_CONTEXT *mvl_create_context(void);
 void mvl_free_context(LIBMVL_CONTEXT *ctx);
 
 #define LIBMVL_NO_METADATA 	0
 #define LIBMVL_NULL_OFFSET 	0
+
 
 LIBMVL_OFFSET64 mvl_write_vector(LIBMVL_CONTEXT *ctx, int type, long length, const void *data, LIBMVL_OFFSET64 metadata);
 
@@ -319,6 +316,40 @@ void mvl_write_postamble(LIBMVL_CONTEXT *ctx);
 #define mvl_vector_data(data)   (*(((LIBMVL_VECTOR *)(data))))
 #endif
 #define mvl_vector_metadata_offset(data)   ((((LIBMVL_VECTOR_HEADER *)(data))->metadata))
+
+
+/* This function returns 0 if the offset into data points to a valid vector, or a negative error code otherwise. 
+ * data_size is an upper limit for valid offsets and is usually the size of mapped MVL file
+ * set to ~0LLU to bypass this check */
+static inline int mvl_validate_vector(LIBMVL_OFFSET64 offset, const void *data, LIBMVL_OFFSET64 data_size) {
+LIBMVL_VECTOR *vec;
+if(offset+sizeof(LIBMVL_VECTOR_HEADER)>data_size)return(LIBMVL_ERR_INVALID_OFFSET);
+vec=(LIBMVL_VECTOR *)&(((unsigned char *)data)[offset]);
+
+if(!mvl_element_size(mvl_vector_type(vec)))return LIBMVL_ERR_UNKNOWN_TYPE;
+
+if(offset+sizeof(LIBMVL_VECTOR_HEADER)+mvl_vector_length(vec)>data_size)return(LIBMVL_ERR_INVALID_LENGTH);
+
+if(mvl_vector_type(vec)==LIBMVL_PACKED_LIST64) {
+	/* We check the first and last pointer of the packed list, as checking all the entries is inefficient
+	 * A valid packed list will have all entries in increasing order, which is easy to check at the point of use
+	 */
+	LIBMVL_OFFSET64 offset2=mvl_vector_data(vec).offset[0];
+	LIBMVL_VECTOR *vec2;
+	if(offset2 < sizeof(LIBMVL_VECTOR_HEADER) || offset2>data_size)return(LIBMVL_ERR_INVALID_OFFSET);
+
+	vec2=(LIBMVL_VECTOR *)&(((unsigned char *)data)[offset2-sizeof(LIBMVL_VECTOR_HEADER)]);
+
+	if(mvl_vector_type(vec2)!=LIBMVL_VECTOR_UINT8)return(LIBMVL_ERR_UNKNOWN_TYPE);
+	if(offset2+mvl_vector_length(vec2)>data_size)return(LIBMVL_ERR_INVALID_LENGTH);
+	
+	if(mvl_vector_data(vec).offset[mvl_vector_length(vec)-1]>offset2+mvl_vector_length(vec2))return(LIBMVL_ERR_INVALID_OFFSET);
+	
+	return(0);
+	}
+
+return(0);
+}
 
 /* These two convenience functions are meant for retrieving a few values, such as stored configuration parameters.
  * Only floating point and offset values are supported as output because they have intrinsic notion of invalid value.

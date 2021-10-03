@@ -627,8 +627,6 @@ LIBMVL_OFFSET64 mvl_write_directory(LIBMVL_CONTEXT *ctx)
 {
 LIBMVL_OFFSET64 *p;
 LIBMVL_OFFSET64 offset;
-int i;
-
 
 if(ctx->directory->free<1) {
 	mvl_set_error(ctx, LIBMVL_ERR_EMPTY_DIRECTORY);
@@ -638,7 +636,7 @@ if(ctx->directory->free<1) {
 #ifdef MVL_OLD_DIRECTORY
 	
 p=do_malloc(ctx->directory->free*2, sizeof(*p));
-for(i=0;i<ctx->directory->free;i++) {
+for(int i=0;i<ctx->directory->free;i++) {
 // 	p[i]=mvl_write_vector(ctx, LIBMVL_VECTOR_UINT8,  strlen(ctx->directory[i].tag), ctx->directory[i].tag, LIBMVL_NO_METADATA);
 // 	p[i+ctx->dir_free]=ctx->directory[i].offset;
 	p[i]=mvl_write_vector(ctx, LIBMVL_VECTOR_UINT8,  ctx->directory->tag_length[i], ctx->directory->tag[i], LIBMVL_NO_METADATA);
@@ -655,12 +653,13 @@ if((long long)offset<0) {
 
 mvl_write_vector(ctx, LIBMVL_VECTOR_OFFSET64, 2*ctx->directory->free, p, LIBMVL_NO_METADATA);
 
-ctx->directory_offset=offset;
 free(p);
 
 #else 
-ctx->directory_offset=mvl_write_named_list(ctx, ctx->directory);
+offset=mvl_write_named_list(ctx, ctx->directory);
 #endif
+
+ctx->directory_offset=offset;
 
 return(offset);
 }
@@ -958,6 +957,9 @@ mvl_recompute_named_list_hash(L);
 return(L);
 }
 
+/*!
+ *   \brief Prepare context for writing to file f
+ */
 void mvl_open(LIBMVL_CONTEXT *ctx, FILE *f)
 {
 ctx->f=f;
