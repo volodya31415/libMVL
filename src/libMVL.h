@@ -10,6 +10,10 @@
 extern "C" {
 #endif
 
+/*!  @file
+ *   @brief core libMVL functions and structures
+ */
+
 /* Mappable Vector Library - 
  * a structured file format which can be efficiently used 
  * after read-only memory mapping, and can be appended while mapped, 
@@ -19,16 +23,23 @@ extern "C" {
 #define LIBMVL_SIGNATURE "MVL0"
 #define LIBMVL_ENDIANNESS_FLAG 1.0
 
-#define LIBMVL_VECTOR_UINT8	1
-#define LIBMVL_VECTOR_INT32	2
-#define LIBMVL_VECTOR_INT64	3
-#define LIBMVL_VECTOR_FLOAT	4
-#define LIBMVL_VECTOR_DOUBLE	5
-#define LIBMVL_VECTOR_OFFSET64	100
-#define LIBMVL_VECTOR_CSTRING	101     /* C string is just like UINT8, except that the data is considered valid up to length or
-first 0 byte */
-
-/* The main purpose of this type is to provide efficient storage for vectors of short strings.
+/*!
+ *  @def LIBMVL_VECTOR_UINT8
+ * 	MVL vector type for storing bytes and strings. Can also be used as an opaque type
+ *  @def LIBMVL_VECTOR_INT32
+ *      MVL vector type for storing 32-bit signed integers
+ *  @def LIBMVL_VECTOR_INT64	
+ *	  MVL vector type for storing 64-bit signed integers
+ * @def LIBMVL_VECTOR_FLOAT	
+ *	 MVL vector type for storing 32-bit floating point numbers
+ * @def LIBMVL_VECTOR_DOUBLE	
+ * 	MVL vector type for storing 64-bit floating point numbers
+ * @def LIBMVL_VECTOR_OFFSET64	
+ * 	MVL vector type for storing unsigned 64-bit offsets, typically considered as a list of other MVL vectors
+ * @def LIBMVL_VECTOR_CSTRING	
+ * 	MVL vector type for storing C-style strings. It is exactly as LIBMVL_VECTOR_UINT8, except that the data is considered valid up to length or first 0 byte 
+ * @def LIBMVL_PACKED_LIST64 
+*  The main purpose of this type is to provide efficient storage for vectors of short strings.
  * This is stored as LIBMVL_VECTOR_OFFSET64 with offset[0] pointing to the start of basic vector and subsequent offsets pointing to the start of the next string.
  * For convenience the last entry points to the end of the last string.
  * 
@@ -36,14 +47,29 @@ first 0 byte */
  * 
  * The usage of 64-bit offsets allows for arbitrarily long strings in the list, while requiring only minimal overhead for each string.
  * 
- * The type is separate from LIBMVL_VECTOR_OFFSET64 to facilitate automated tree traversal.
+ * The type is separate from LIBMVL_VECTOR_OFFSET64 to facilitate automated tree traversal.	
  */
+
+
+#define LIBMVL_VECTOR_UINT8	1       
+#define LIBMVL_VECTOR_INT32	2        
+#define LIBMVL_VECTOR_INT64	3     
+#define LIBMVL_VECTOR_FLOAT	4       
+#define LIBMVL_VECTOR_DOUBLE	5       
+#define LIBMVL_VECTOR_OFFSET64	100    
+#define LIBMVL_VECTOR_CSTRING	101    
+
 #define LIBMVL_PACKED_LIST64 	102     
 
 
 #define LIBMVL_VECTOR_POSTAMBLE1 1000		/* Old format using DIRECTORY_ENTRY */
 #define LIBMVL_VECTOR_POSTAMBLE2 1001		/* New format using named list */
 
+
+/*! @brief Return the element size in bytes for a particular MVL type
+ *  @param type MVL type, such LIBMVL_VECTOR_FLOAT
+ *  @return size in bytes
+ */
 static inline int mvl_element_size(int type) 
 {
 switch(type) {
@@ -64,6 +90,8 @@ switch(type) {
 }
 
 
+/*! @brief MVL unsigned 64-bit type used for describing offsets into loaded data
+ */
 typedef unsigned long long LIBMVL_OFFSET64;
 
 typedef struct {
@@ -110,6 +138,8 @@ typedef struct {
  * thinking that data arrays are smaller than they are.
  */
 	
+/*!  @brief LIBMVL_VECTOR is the basic unit of information storage
+ */
 typedef struct {
 	LIBMVL_VECTOR_HEADER header;
 	union {
@@ -158,6 +188,12 @@ typedef struct {
 	} LIBMVL_VECTOR;
 #endif
 
+	
+/*! @brief This structure describes a named list - an array of LIBMVL_OFFSET64 entries each with a character name or tag.
+ * 
+ * A hash map can be computed for fast retrieval of entries by tag. 
+ * It is allowed to have repeated names, but they are best avoided for compatibility with R.
+ */
 typedef struct {
 	long size;
 	long free;
@@ -172,6 +208,11 @@ typedef struct {
 	LIBMVL_OFFSET64 hash_size;
 	} LIBMVL_NAMED_LIST;
 	
+	
+/*! @brief This structure describes MVL context - a collection of system data associated with a single MVL file. 
+ * 
+ *  For every accessed MVL file, whether for writing or memory mapped there must be one MVL context.
+ */
 typedef struct {
 	int alignment;
 	int error;
@@ -215,7 +256,12 @@ typedef struct {
 LIBMVL_CONTEXT *mvl_create_context(void);
 void mvl_free_context(LIBMVL_CONTEXT *ctx);
 
+/*! @brief Use this constant to specify that no metadata should be written 
+ */
 #define LIBMVL_NO_METADATA 	0
+/*! @brief Null offsets into memory mapped data are always invalid because that is where preamble is
+ *  This is usually used to indicate that the offset does not point to valid data
+ */
 #define LIBMVL_NULL_OFFSET 	0
 
 
@@ -256,6 +302,12 @@ LIBMVL_OFFSET64 mvl_write_vector_inline(LIBMVL_CONTEXT *ctx, int type, int count
 
 #define MVL_NUMARGS(...)  (sizeof((int[]){__VA_ARGS__})/sizeof(int))
 
+
+/*! \def MVL_WVEC 
+ *   A convenience macro used for create and writing vectors of small number of entries inline. Commonly used for writing configuration data.
+ *   
+ *   Example: MVL_WVEC(ctx, LIBMVL_VECTOR_FLOAT, 1.0, 4.0, 9.0, 16.0)
+ */
 #define MVL_WVEC(ctx, type, ...) mvl_write_vector_inline(ctx, type, MVL_NUMARGS(__VA_ARGS__), 0, __VA_ARGS__)
 
 
@@ -308,19 +360,38 @@ void mvl_close(LIBMVL_CONTEXT *ctx);
 void mvl_write_preamble(LIBMVL_CONTEXT *ctx);
 void mvl_write_postamble(LIBMVL_CONTEXT *ctx);
 
+/*! @brief Return type of data from a pointer to LIBMVL_VECTOR 
+ */
 #define mvl_vector_type(data)   (((LIBMVL_VECTOR_HEADER *)(data))->type)
+
+/*! @brief Return number of elements from a pointer to LIBMVL_VECTOR 
+ */
 #define mvl_vector_length(data)   (((LIBMVL_VECTOR_HEADER *)(data))->length)
+
 #if MVL_STATIC_MEMBERS
+/*! @brief Return base data from a pointer to LIBMVL_VECTOR 
+ * 
+ *  * Use mvl_vector_data(vec).b   for LIBMVL_VECTOR_UINT8
+ *  * Use mvl_vector_data(vec).i   for LIBMVL_VECTOR_INT32
+ *  * Use mvl_vector_data(vec).i64   for LIBMVL_VECTOR_INT64
+ *  * Use mvl_vector_data(vec).f   for LIBMVL_VECTOR_FLOAT
+ *  * Use mvl_vector_data(vec).d   for LIBMVL_VECTOR_DOUBLE
+ *  * Use mvl_vector_data(vec).offsets   for LIBMVL_VECTOR_OFFSET64
+ */
 #define mvl_vector_data(data)   ((((LIBMVL_VECTOR *)(data))->u))
 #else
 #define mvl_vector_data(data)   (*(((LIBMVL_VECTOR *)(data))))
 #endif
+
 #define mvl_vector_metadata_offset(data)   ((((LIBMVL_VECTOR_HEADER *)(data))->metadata))
 
 
-/* This function returns 0 if the offset into data points to a valid vector, or a negative error code otherwise. 
- * data_size is an upper limit for valid offsets and is usually the size of mapped MVL file
- * set to ~0LLU to bypass this check */
+/*! @brief This function returns 0 if the offset into data points to a valid vector, or a negative error code otherwise. 
+ *  @param offset an offset into memory mapped data where the LIBMVL_VECTOR is located
+ *  @param data  pointer to beginning of memory mapped data
+ *  @param data_size an upper limit for valid offsets - usually the size of mapped MVL file.
+ *  if data_size is set to ~0LLU the checks are bypassed
+ */
 static inline int mvl_validate_vector(LIBMVL_OFFSET64 offset, const void *data, LIBMVL_OFFSET64 data_size) {
 LIBMVL_VECTOR *vec;
 if(offset+sizeof(LIBMVL_VECTOR_HEADER)>data_size)return(LIBMVL_ERR_INVALID_OFFSET);
@@ -355,6 +426,15 @@ return(0);
  * Only floating point and offset values are supported as output because they have intrinsic notion of invalid value.
  */
 
+/*! @brief Return idx vector entry as a double. 
+ * 
+ *  This function is meant as a convenience function for retrieving a few values, such as stored configuration parameters.
+ * 
+ * @param vec a pointer to LIBMVL_VECTOR
+ * @param idx index into a vector
+ * @return vector value converted into a double, or a NAN if anything went wrong.
+ */
+
 static inline double mvl_as_double(const LIBMVL_VECTOR *vec, long idx) 
 {
 if((idx<0) || (idx>=mvl_vector_length(vec)))return(NAN);
@@ -373,6 +453,15 @@ switch(mvl_vector_type(vec)) {
 	}
 }
 
+/*! @brief Return idx vector entry as a double, with default for missing values
+ * 
+ *  This function is meant as a convenience function for retrieving a few values, such as stored configuration parameters.
+ * 
+ * @param vec a pointer to LIBMVL_VECTOR
+ * @param idx index into a vector
+ * @param def default value to return in case of out of bounds indices.
+ * @return vector value converted into a double, or def if anything went wrong.
+ */
 static inline double mvl_as_double_default(const LIBMVL_VECTOR *vec, long idx, double def) 
 {
 if((idx<0) || (idx>=mvl_vector_length(vec)))return(def);
@@ -391,6 +480,15 @@ switch(mvl_vector_type(vec)) {
 	}
 }
 
+/*! @brief Return idx vector entry as an offset. 
+ * 
+ *  This function is meant as a convenience function for retrieving a few values, such as stored configuration parameters.
+ *  Only LIBMVL_VECTOR_OFFSET64 vectors are supported
+ * 
+ * @param vec a pointer to LIBMVL_VECTOR
+ * @param idx index into a vector
+ * @return vector value converted into a double, or LIBMVL_NULL_OFFSET if anything went wrong.
+ */
 static inline LIBMVL_OFFSET64 mvl_as_offset(const LIBMVL_VECTOR *vec, long idx) 
 {
 if((idx<0) || (idx>=mvl_vector_length(vec)))return(0);
@@ -403,6 +501,18 @@ switch(mvl_vector_type(vec)) {
 	}
 }
 
+/*! @brief Find an entry in a named list and return its idx value as a double. 
+ * 
+ *  This function is meant as a convenience function for retrieving a few values stored in a named list, such as stored configuration parameters.
+ *  It effectively performs double indexing L[tag][idx]
+ * 
+ * @param L a pointer to previously retrieved LIBMVL_NAMED_LIST
+ * @param data a pointer to beginning of memory mapped MVL file
+ * @param tag_length length of character tag, or -1 to compute automatically
+ * @param tag character tag
+ * @param idx index into the entry
+ * @return vector value converted into a double, or a NAN if anything went wrong.
+ */
 static inline double mvl_named_list_get_double(LIBMVL_NAMED_LIST *L, const void *data, long tag_length, const char *tag, long idx)
 {
 LIBMVL_VECTOR *vec;
@@ -414,6 +524,19 @@ vec=(LIBMVL_VECTOR *)&(((char *)data)[ofs]);
 return(mvl_as_double(vec, idx));
 }
 
+/*! @brief Find an entry in a named list and return its idx value a double. 
+ * 
+ *  This function is meant as a convenience function for retrieving a few values stored in a named list, such as stored configuration parameters.
+ *  It effectively performs double indexing L[tag][idx]
+ * 
+ * @param L a pointer to previously retrieved LIBMVL_NAMED_LIST
+ * @param data a pointer to beginning of memory mapped MVL file
+ * @param tag_length length of character tag, or -1 to compute automatically
+ * @param tag character tag
+ * @param idx index into the entry
+ * @param def default value to return in case of errors
+ * @return vector value converted into a double, or def if anything went wrong.
+ */
 static inline double mvl_named_list_get_double_default(LIBMVL_NAMED_LIST *L, const void *data, long tag_length, const char *tag, long idx, double def)
 {
 LIBMVL_VECTOR *vec;
@@ -425,6 +548,18 @@ vec=(LIBMVL_VECTOR *)&(((char *)data)[ofs]);
 return(mvl_as_double_default(vec, idx, def));
 }
 
+/*! @brief Find an entry in a named list and return its idx value as an offset. 
+ * 
+ *  This function is meant as a convenience function for retrieving a few values stored in a named list, such as stored configuration parameters.
+ *  It effectively performs double indexing L[tag][idx]
+ * 
+ * @param L a pointer to previously retrieved LIBMVL_NAMED_LIST
+ * @param data a pointer to beginning of memory mapped MVL file
+ * @param tag_length length of character tag, or -1 to compute automatically
+ * @param tag character tag
+ * @param idx index into the entry
+ * @return vector value, or LIBMVL_NULL_OFFSET if anything went wrong.
+ */
 static inline LIBMVL_OFFSET64 mvl_named_list_get_offset(LIBMVL_NAMED_LIST *L, const void *data, long tag_length, const char *tag, long idx)
 {
 LIBMVL_VECTOR *vec;
@@ -436,6 +571,11 @@ vec=(LIBMVL_VECTOR *)&(((char *)data)[ofs]);
 return(mvl_as_offset(vec, idx));
 }
 
+/*! @brief Get length in bytes of string element idx from a packed list
+ * @param vec a pointer to LIBMVL_VECTOR  with type LIBMVL_PACKED_LIST64
+ * @param idx entry index
+ * @return string length in bytes
+ */
 static inline LIBMVL_OFFSET64 mvl_packed_list_get_entry_bytelength(const LIBMVL_VECTOR *vec, LIBMVL_OFFSET64 idx)
 {
 LIBMVL_OFFSET64 start, stop, len;
@@ -448,6 +588,12 @@ return(stop-start);
 }
 
 /* This returns char even though the underlying type can be different - we just want the pointer */
+/*! @brief Get pointer to the start of string element idx from a packed list
+ * @param vec a pointer to LIBMVL_VECTOR with type LIBMVL_PACKED_LIST64
+ * @param data a pointer to beginning of  memory mapped MVL file
+ * @param idx entry index 
+ * @return a pointer to the beginning of the data. 
+ */
 static inline const char * mvl_packed_list_get_entry(const LIBMVL_VECTOR *vec, const void *data, LIBMVL_OFFSET64 idx)
 {
 LIBMVL_OFFSET64 start, len;
@@ -485,6 +631,10 @@ int mvl_sort_indices(LIBMVL_OFFSET64 indices_count, LIBMVL_OFFSET64 *indices, LI
 /* Hash function */
 
 /* This randomizes bits of 64-bit numbers. */
+/*! @brief Randomize bits of 64-bit numbers, typically after accumulating a hash value
+ *  @param x input value
+ *  @return Randomized value
+ */
 static inline LIBMVL_OFFSET64 mvl_randomize_bits64(LIBMVL_OFFSET64 x)
 {
 	x^=x>>31;
@@ -498,6 +648,10 @@ x*=13397683724573242421LLU;
 /* 32 bit primes: 2147483629 2147483647 */
 
 /* Untested for randomization quality */
+/*! @brief Randomize bits of 32-bit numbers, typically after accumulating a hash value
+ *  @param x input value
+ *  @return Randomized value
+ */
 static inline unsigned mvl_randomize_bits32(unsigned x)
 {
 	x^=x>>15;
@@ -508,10 +662,21 @@ x*=2554984639LLU;
 	return(x);
 }
 
+/*! \def MVL_SEED_HASH_VALUE
+ *   Recommended value to be used to initialize hashes. Note that initial value should not be 0
+ */
 #define MVL_SEED_HASH_VALUE	0xabcdef
 
 /* This allows to accumulate hash value from several sources. 
  * Initial x value can be anything except 0 
+ */
+/*! @brief Accumulate hash from a piece of data. 
+ * 
+ *  This function allows to compute hash of data in several stages.
+ *  @param x  previous hash value
+ *  @param data array of character data
+ *  @param count length of data
+ *  @return new hash value
  */
 static inline LIBMVL_OFFSET64 mvl_accumulate_hash64(LIBMVL_OFFSET64 x, const unsigned char *data, LIBMVL_OFFSET64 count)
 {
@@ -574,6 +739,15 @@ x[7]=x7;
  * 
  * This function accumulates 32-bit signed ints by value
  */
+/*! @brief Accumulate hash from an array of 32-bit integers
+ *  The integers are hashed by value, not representation, so one gets the same hash from value of 100 whether it is stored as 32-bits or 64-bits.
+ * 
+ *  This function allows to compute hash of data in several stages.
+ *  @param x  previous hash value
+ *  @param data array of 32-bit integers
+ *  @param count length of data
+ *  @return new hash value
+ */
 static inline LIBMVL_OFFSET64 mvl_accumulate_int32_hash64(LIBMVL_OFFSET64 x, const int *data, LIBMVL_OFFSET64 count)
 {
 LIBMVL_OFFSET64 i;
@@ -595,6 +769,15 @@ return(x);
  * Initial x value can be anything except 0 
  * 
  * This function accumulates 64-bit signed ints by value
+ */
+/*! @brief Accumulate hash from an array of 64-bit integers
+ *  The integers are hashed by value, not representation, so one gets the same hash from value of 100 whether it is stored as 32-bits or 64-bits.
+ * 
+ *  This function allows to compute hash of data in several stages.
+ *  @param x  previous hash value
+ *  @param data array of 64-bit integers
+ *  @param count length of data
+ *  @return new hash value
  */
 static inline LIBMVL_OFFSET64 mvl_accumulate_int64_hash64(LIBMVL_OFFSET64 x, const long long int *data, LIBMVL_OFFSET64 count)
 {
@@ -618,6 +801,16 @@ return(x);
  * 
  * This function accumulates 32-bit floats by value, so that a float promoted to double will have the same hash
  */
+/*! @brief Accumulate hash from an array of 32-bit floats
+ *  The floats are hashed by value, not representation, so one gets the same hash from value of 100.0 whether it is stored as float or promoted to double.
+ *  Note that this does not work in reverse - many doubles can be truncated to the same float.
+ * 
+ *  This function allows to compute hash of data in several stages.
+ *  @param x  previous hash value
+ *  @param data array of 32-bit floats
+ *  @param count length of data
+ *  @return new hash value
+ */
 static inline LIBMVL_OFFSET64 mvl_accumulate_float_hash64(LIBMVL_OFFSET64 x, const float *data, LIBMVL_OFFSET64 count)
 {
 LIBMVL_OFFSET64 i;
@@ -639,6 +832,16 @@ return(x);
  * Initial x value can be anything except 0 
  * 
  * This function accumulates 64-bit doubles by value, so that a float promoted to double will have the same hash as original float
+ */
+/*! @brief Accumulate hash from an array of 64-bit floats
+ *  The floats are hashed by value, not representation, so one gets the same hash from value of 100.0 whether it is stored as float or promoted to double.
+ *  Note that this does not work in reverse - many doubles can be truncated to the same float.
+ * 
+ *  This function allows to compute hash of data in several stages.
+ *  @param x  previous hash value
+ *  @param data array of 64-bit floats
+ *  @param count length of data
+ *  @return new hash value
  */
 static inline LIBMVL_OFFSET64 mvl_accumulate_double_hash64(LIBMVL_OFFSET64 x, const double *data, LIBMVL_OFFSET64 count)
 {

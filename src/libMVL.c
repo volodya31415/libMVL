@@ -1,6 +1,10 @@
 
 /* (c) Vladimir Dergachev 2019-2021 */
 
+/*!  @file
+ *   @brief core libMVL functions
+ */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -51,6 +55,9 @@ p[len]=0;
 return(p);
 }
 
+/*!  @brief Create MVL context 
+ *   @return A pointer to allocated LIBMVL_CONTEXT structure
+ */
 LIBMVL_CONTEXT *mvl_create_context(void)
 {
 LIBMVL_CONTEXT *ctx;
@@ -74,6 +81,9 @@ ctx->cached_strings=mvl_create_named_list(32);
 return(ctx);
 }
 
+/*! @brief Release memory associated with MVL context
+ *  @param ctx pointer to context previously allocated with mvl_create_context()
+ */
 void mvl_free_context(LIBMVL_CONTEXT *ctx)
 {
 mvl_free_named_list(ctx->directory);
@@ -146,6 +156,14 @@ ctx->tmp_postamble.type=LIBMVL_VECTOR_POSTAMBLE2;
 mvl_write(ctx, sizeof(ctx->tmp_postamble), &ctx->tmp_postamble);
 }
 
+/*!  @brief Write complete MVL vector 
+ *   @param ctx MVL context pointer that has been initialized for writing
+ *   @param type MVL data type
+ *   @param length number of elements to write
+ *   @param data  pointer to data
+ *   @param metadata an optional offset to previously written metadata. Specify LIBMVL_NO_METADATA if not needed
+ *   @return an offset into the file, suitable for adding to MVL file directory, or to other MVL objects
+ */
 LIBMVL_OFFSET64 mvl_write_vector(LIBMVL_CONTEXT *ctx, int type, long length, const void *data, LIBMVL_OFFSET64 metadata)
 {
 LIBMVL_OFFSET64 byte_length;
@@ -187,6 +205,15 @@ if(padding>0) {
 return(offset);
 }
 
+/*!  @brief Begin write of MVL vector. This is only needed if the vector has to be written in parts, such as due to memory constraints.
+ *   @param ctx MVL context pointer that has been initialized for writing
+ *   @param type MVL data type
+ *   @param expected_length number of elements in the fully written vector
+ *   @param length number of elements to write
+ *   @param data  pointer to data
+ *   @param metadata an optional offset to previously written metadata. Specify LIBMVL_NO_METADATA if not needed
+ *   @return an offset into the file, suitable for adding to MVL file directory, or to other MVL objects
+ */
 LIBMVL_OFFSET64 mvl_start_write_vector(LIBMVL_CONTEXT *ctx, int type, long expected_length, long length, const void *data, LIBMVL_OFFSET64 metadata)
 {
 LIBMVL_OFFSET64 byte_length, total_byte_length;
@@ -257,6 +284,14 @@ if(padding>0) {
 return(offset);
 }
 
+/*!  @brief Write more data to MVL vector that has been previously created with mvl_start_write_vector()
+ *   @param ctx MVL context pointer that has been initialized for writing
+ *   @param type MVL data type
+ *   @param base_offset the offset returned by mvl_start_write_vector()
+ *   @param idx  index of of first element pointed to by data
+ *   @param length number of elements to write
+ *   @param data  pointer to data
+ */
 void mvl_rewrite_vector(LIBMVL_CONTEXT *ctx, int type, LIBMVL_OFFSET64 base_offset, LIBMVL_OFFSET64 idx, long length, const void *data)
 {
 LIBMVL_OFFSET64 byte_length, elt_size;
@@ -267,6 +302,16 @@ byte_length=length*elt_size;
 if(byte_length>0)mvl_rewrite(ctx, base_offset+elt_size*idx+sizeof(ctx->tmp_vh), byte_length, data);
 }
 
+/*!  @brief Write MVL vector that contains data at specific indices. The indices can repeat, and can themselves be stored in memory mapped MVL file.
+ *   @param ctx MVL context pointer that has been initialized for writing
+ *   @param index_count number of indices to process, this will determine the length of the new vector
+ *   @param indices array of indices into vector vec
+ *   @param vec a pointer to fully formed MVL vector, such as from mapped MVL file
+ *   @param data  pointer to data of previously mapped MVL library
+ *   @param metadata an optional offset to previously written metadata. Specify LIBMVL_NO_METADATA if not needed
+ *   @param max_buffer maximum size of buffer to hold in-flight data. Recommend to set to at least 10MB for efficiency.
+ *   @return an offset into the file, suitable for adding to MVL file directory, or to other MVL objects
+ */
 LIBMVL_OFFSET64 mvl_indexed_copy_vector(LIBMVL_CONTEXT *ctx, LIBMVL_OFFSET64 index_count, const LIBMVL_OFFSET64 *indices, const LIBMVL_VECTOR *vec, const void *data, LIBMVL_OFFSET64 metadata, LIBMVL_OFFSET64 max_buffer)
 {
 LIBMVL_OFFSET64 char_length, vec_length, i, m, k, i_start, char_start, char_buf_length, vec_buf_length, N;
@@ -417,6 +462,15 @@ free(char_buffer);
 return(offset);
 }
 
+/*!  @brief Write complete MVL vector concatenating data from many vectors or arrays
+ *   @param ctx MVL context pointer that has been initialized for writing
+ *   @param type MVL data type
+ *   @param nvec number of arrays to concatenate
+ *   @param lengths array of lengths of individual vectors
+ *   @param data  array of pointers to vector data
+ *   @param metadata an optional offset to previously written metadata. Specify LIBMVL_NO_METADATA if not needed
+ *   @return an offset into the file, suitable for adding to MVL file directory, or to other MVL objects
+ */
 LIBMVL_OFFSET64 mvl_write_concat_vectors(LIBMVL_CONTEXT *ctx, int type, long nvec, const long *lengths, void **data, LIBMVL_OFFSET64 metadata)
 {
 LIBMVL_OFFSET64 byte_length, length;
@@ -463,14 +517,25 @@ if(padding>0) {
 return(offset);
 }
 
-/* Writes a single C string. In particular, this is handy for providing metadata tags */
-/* length can be specified as -1 to be computed automatically */
+/*! @brief Write a single C string. In particular, this is handy for providing metadata tags 
+ *   @param ctx MVL context pointer that has been initialized for writing
+ *   @param length string length. Set to -1 to be computed automatically.
+ *   @param data  string data
+ *   @param metadata an optional offset to previously written metadata. Specify LIBMVL_NO_METADATA if not needed
+ *   @return an offset into the file, suitable for adding to MVL file directory, or to other MVL objects
+ */
 LIBMVL_OFFSET64 mvl_write_string(LIBMVL_CONTEXT *ctx, long length, const char *data, LIBMVL_OFFSET64 metadata)
 {
 if(length<0)length=strlen(data);
 return(mvl_write_vector(ctx, LIBMVL_VECTOR_CSTRING, length, data, metadata));
 }
 
+/*! @brief Write a single C string if it has not been written before, otherwise return offset to previously written object. In particular, this is handy for providing metadata tags 
+ *   @param ctx MVL context pointer that has been initialized for writing
+ *   @param length string length. Set to -1 to be computed automatically.
+ *   @param data  string data
+ *   @return an offset into the file, suitable for adding to MVL file directory, or to other MVL objects
+ */
 LIBMVL_OFFSET64 mvl_write_cached_string(LIBMVL_CONTEXT *ctx, long length, const char *data)
 {
 LIBMVL_OFFSET64 ofs;
@@ -547,6 +612,14 @@ switch(type) {
 	
 }
 
+/*! @brief Write an array of strings as a packed list data type. This is convenient for storing a lot of different strings
+ *   @param ctx MVL context pointer that has been initialized for writing
+ *   @param count Number of strings to store
+ *   @param str_size array of lengths of individual strings. If this is NULL string lengths are computed automatically. In addition, if any string length is -1 it is also computed automatically.
+ *   @param str  point to array of strings
+ *   @param metadata an optional offset to previously written metadata. Specify LIBMVL_NO_METADATA if not needed
+ *   @return an offset into the file, suitable for adding to MVL file directory, or to other MVL objects
+ */
 LIBMVL_OFFSET64 mvl_write_packed_list(LIBMVL_CONTEXT *ctx, long count, const long *str_size,  char **str, LIBMVL_OFFSET64 metadata)
 {
 LIBMVL_OFFSET64 *ofsv, ofs1, ofs2, len1;
@@ -577,6 +650,10 @@ free(str_size2);
 return(ofs2);
 }
 
+/*! @brief Get offset to metadata describing R-style character class - an array of strings. This is convenient for writing columns of strings to be analyzed with R - just provide this offset as the metadata field of mvl_write_packed_list()
+ *   @param ctx MVL context pointer that has been initialized for writing
+ *   @return an offset into the file, suitable for specifying as MVL object metadata
+ */
 LIBMVL_OFFSET64 mvl_get_character_class_offset(LIBMVL_CONTEXT *ctx)
 {
 LIBMVL_NAMED_LIST *L;
@@ -588,6 +665,11 @@ if(ctx->character_class_offset==0) {
 return(ctx->character_class_offset);
 }
 
+/*! @brief Add entry to the top level directory of MVL file. 
+ *   @param ctx MVL context pointer that has been initialized for writing
+ *   @param offset directory entry value - typically an offset pointing to previously written MVL object
+ *   @param tag  C string describing directory entry. When necessary, these can repeat, in which case the last written entry is retrieved first.
+ */
 void mvl_add_directory_entry(LIBMVL_CONTEXT *ctx, LIBMVL_OFFSET64 offset, const char *tag)
 {
 // LIBMVL_DIRECTORY_ENTRY *p;
@@ -606,6 +688,12 @@ void mvl_add_directory_entry(LIBMVL_CONTEXT *ctx, LIBMVL_OFFSET64 offset, const 
 mvl_add_list_entry(ctx->directory, -1, tag, offset);
 }
 
+/*! @brief Add entry to the top level directory of MVL file. 
+ *   @param ctx MVL context pointer that has been initialized for writing
+ *   @param offset directory entry value - typically an offset pointing to previously written MVL object
+ *   @param tag  string describing directory entry. When necessary, these can repeat, in which case the last written entry is retrieved first.
+ *   @param tag_size  length of tag
+ */
 void mvl_add_directory_entry_n(LIBMVL_CONTEXT *ctx, LIBMVL_OFFSET64 offset, const char *tag, LIBMVL_OFFSET64 tag_size)
 {
 // LIBMVL_DIRECTORY_ENTRY *p;
@@ -623,6 +711,10 @@ void mvl_add_directory_entry_n(LIBMVL_CONTEXT *ctx, LIBMVL_OFFSET64 offset, cons
 mvl_add_list_entry(ctx->directory, tag_size, tag, offset);
 }
 
+/*! @brief Write out MVL file directory with entries collected so far. If this is called multiple times only the latest written directory is retrieved when MVL file is opened. It is an error to write out an empty directory.
+ *   @param ctx MVL context pointer that has been initialized for writing
+ *   @return an offset into the file where the directory was written
+ */
 LIBMVL_OFFSET64 mvl_write_directory(LIBMVL_CONTEXT *ctx)
 {
 LIBMVL_OFFSET64 *p;
@@ -664,6 +756,10 @@ ctx->directory_offset=offset;
 return(offset);
 }
 
+/*! @brief Allocate and initialize structure for LIBMVL_NAMED_LIST
+ *   @param size this can be set to large values if the final size of named list is known
+ *   @return point to structure for LIBMVL_NAMED_LIST
+ */
 LIBMVL_NAMED_LIST *mvl_create_named_list(int size)
 {
 LIBMVL_NAMED_LIST *L;
@@ -683,6 +779,9 @@ L->first_item=NULL;
 return(L);
 }
 
+/*! @brief Free structure for LIBMVL_NAMED_LIST
+ *   @param L pointer to previously allocated LIBMVL_NAMED_LIST
+ */
 void mvl_free_named_list(LIBMVL_NAMED_LIST *L)
 {
 long i;
@@ -695,6 +794,9 @@ free(L->tag_length);
 free(L);
 }
 
+/*! @brief Recompute named list hash
+ *   @param L pointer to previously allocated LIBMVL_NAMED_LIST
+ */
 void mvl_recompute_named_list_hash(LIBMVL_NAMED_LIST *L)
 {
 LIBMVL_OFFSET64 mask;
@@ -725,6 +827,13 @@ for(LIBMVL_OFFSET64 i=0;i<L->free;i++) {
 	}
 }
 
+/*! @brief Add entry to LIBMVL_NAMED_LIST. The entry is always appended to the end.
+ *   @param L pointer to previously allocated LIBMVL_NAMED_LIST
+ *   @param tag_length size of tag
+ *   @param tag string identifying entry - these can repeat.
+ *   @param offset  64-bit value
+ *   @return index of entry inside named list
+ */
 long mvl_add_list_entry(LIBMVL_NAMED_LIST *L, long tag_length, const char *tag, LIBMVL_OFFSET64 offset)
 {
 void *p;
@@ -766,6 +875,12 @@ if(L->hash_size>0) {
 return(k);
 }
 
+/*! @brief Find existing entry inside LIBMVL_NAMED_LIST. If several identically named entries exist this function returns last written value. Hash table is used if present.
+ *   @param L pointer to previously allocated LIBMVL_NAMED_LIST
+ *   @param tag_length size of tag
+ *   @param tag string identifying entry - these can repeat.
+ *   @return entry value
+ */
 LIBMVL_OFFSET64 mvl_find_list_entry(LIBMVL_NAMED_LIST *L, long tag_length, const char *tag)
 {
 long i, tl;
@@ -795,6 +910,11 @@ return(LIBMVL_NULL_OFFSET);
 }
 
 
+/*! @brief Create R-style attribute list for class given by R_class, which could be, for example, "data.frame"
+ *   @param ctx MVL context pointer that has been initialized for writing
+ *   @param R_class string identifying R class, such as "data.frame"
+ *   @return pointer to LIBMVL_NAMED_LIST with allocated parameters
+ */
 LIBMVL_NAMED_LIST *mvl_create_R_attributes_list(LIBMVL_CONTEXT *ctx, const char *R_class)
 {
 LIBMVL_NAMED_LIST *L;
@@ -804,6 +924,11 @@ mvl_add_list_entry(L, -1, "class", mvl_write_cached_string(ctx, -1, R_class));
 return(L);
 }
 
+/*! @brief Write out R-style attribute list.
+ *   @param ctx MVL context pointer that has been initialized for writing
+ *   @param L previously created attributes list
+ *   @return an offset into the file, suitable for use as vector metadata
+ */
 LIBMVL_OFFSET64 mvl_write_attributes_list(LIBMVL_CONTEXT *ctx, LIBMVL_NAMED_LIST *L)
 {
 LIBMVL_OFFSET64 *offsets, attr_offset;
@@ -822,6 +947,11 @@ free(offsets);
 return(attr_offset);
 }
 
+/*! @brief Write out named list. In R, this would be read back as list.
+ *   @param ctx MVL context pointer that has been initialized for writing
+ *   @param L previously created named list
+ *   @return an offset into the file, suitable for adding to MVL file directory, or to other MVL objects
+ */
 LIBMVL_OFFSET64 mvl_write_named_list(LIBMVL_CONTEXT *ctx, LIBMVL_NAMED_LIST *L)
 {
 LIBMVL_OFFSET64 list_offset;
@@ -838,6 +968,13 @@ mvl_free_named_list(metadata);
 return(list_offset);
 }
 
+/*! @brief Write out named list in the style of R data frames. It is assumed that all entries of L are vectors with the same number of elements.
+ *   @param ctx MVL context pointer that has been initialized for writing
+ *   @param L previously created named list
+ *   @param nrows number of elements in each entry of L. Note that packed lists should have length of nrows+1
+ *   @param rownames names of individual rows. Set to 0 to omit.
+ *   @return an offset into the file, suitable for adding to MVL file directory, or to other MVL objects
+ */
 LIBMVL_OFFSET64 mvl_write_named_list_as_data_frame(LIBMVL_CONTEXT *ctx, LIBMVL_NAMED_LIST *L, int nrows, LIBMVL_OFFSET64 rownames)
 {
 LIBMVL_OFFSET64 list_offset;
@@ -858,6 +995,12 @@ return(list_offset);
 }
 
 /* This is meant to operate on memory mapped files */
+/*! @brief Read back MVL attributes list, typically used to described metadata. This function also initialize hash table for fast access.
+ *   @param ctx MVL context pointer
+ *   @param data memory mapped data
+ *   @param metadata_offset metadata offset pointing to the previously written attributes
+ *   @return NULL if there is no metadata, otherwise LIBMVL_NAMED_LIST populated with attributes
+ */
 LIBMVL_NAMED_LIST *mvl_read_attributes_list(LIBMVL_CONTEXT *ctx, const void *data, LIBMVL_OFFSET64 metadata_offset)
 {
 LIBMVL_NAMED_LIST *L;
@@ -896,6 +1039,12 @@ return(L);
 }
 
 /* This is meant to operate on memory mapped files */
+/*! @brief Read back MVL named list. This function also initialize hash table for fast access.
+ *   @param ctx MVL context pointer
+ *   @param data memory mapped data
+ *   @param offset offset into data where LIBMVL_NAMED_LIST begins
+ *   @return NULL on error, otherwise LIBMVL_NAMED_LIST
+ */
 LIBMVL_NAMED_LIST *mvl_read_named_list(LIBMVL_CONTEXT *ctx, const void *data, LIBMVL_OFFSET64 offset)
 {
 LIBMVL_NAMED_LIST *L, *Lattr;
@@ -957,8 +1106,9 @@ mvl_recompute_named_list_hash(L);
 return(L);
 }
 
-/*!
- *   \brief Prepare context for writing to file f
+/*! @brief Prepare context for writing to file f
+ *   @param ctx MVL context pointer
+ *   @param f pointer to previously opened stdio.h FILE structure
  */
 void mvl_open(LIBMVL_CONTEXT *ctx, FILE *f)
 {
@@ -966,6 +1116,9 @@ ctx->f=f;
 mvl_write_preamble(ctx);
 }
 
+/*! @brief Write out MVL file directory and postable and close file
+ *   @param ctx MVL context pointer
+ */
 void mvl_close(LIBMVL_CONTEXT *ctx)
 {
 mvl_write_directory(ctx);
@@ -998,6 +1151,11 @@ return(p->length>>1);
 // return(mvl_vector_data(p).offset[i+(p->header.length>>1)]);
 // }
 
+/*! @brief Find entry in MVL file directory
+ *   @param ctx MVL context pointer
+ *   @param tag character string identifying entry
+ *   @return offset into file the entry points to
+ */
 LIBMVL_OFFSET64 mvl_find_directory_entry(LIBMVL_CONTEXT *ctx, const char *tag)
 {
 // int i;
@@ -1008,6 +1166,11 @@ LIBMVL_OFFSET64 mvl_find_directory_entry(LIBMVL_CONTEXT *ctx, const char *tag)
 return(mvl_find_list_entry(ctx->directory, -1, tag));
 }
 
+/*! @brief Initilize MVL context to operate with memory mapped area data.
+ *   @param ctx MVL context pointer
+ *   @param length size of memory mapped data, in bytes
+ *   @param data pointer to the beginning of memory mapped area
+ */
 void mvl_load_image(LIBMVL_CONTEXT *ctx, LIBMVL_OFFSET64 length, const void *data)
 {
 LIBMVL_PREAMBLE *pr=(LIBMVL_PREAMBLE *)data;
@@ -1467,12 +1630,19 @@ free(units);
 return 0;
 }
 
-/* This function is used to compute 64 bit hash of vector values
+/*! @brief This function is used to compute 64 bit hash of vector values
  * array hash[] is passed in and contains the result of the computation
  * 
  * Integer indices are computed by value, so that 100 produces the same hash whether it is stored as INT32 or INT64.
  * 
- * Floats and doubles are trickier - we can guarantee that the hash of float promoted to double is the same as the hash of the original float, but not the reverse.
+ * Floats and doubles are trickier - we can guarantee that the hash of a float promoted to a double is the same as the hash of the original float, but not the reverse.
+ * 
+ * @param indices_count  total number of indices 
+ * @param indices an array of indices into provided vectors
+ * @param hash a previously allocated array of length indices_count that the computed hashes will be written into
+ * @param vec_count the number of LIBMVL_VECTORS considered as columns in a table
+ * @param vec an array of pointers to LIBMVL_VECTORS considered as columns in a table
+ * @param vec_data an array of pointers to memory mapped areas those LIBMVL_VECTORs derive from. This allows computing hash from vectors drawn from different MVL files
  */
 int mvl_hash_indices(LIBMVL_OFFSET64 indices_count, const LIBMVL_OFFSET64 *indices, LIBMVL_OFFSET64 *hash, LIBMVL_OFFSET64 vec_count, LIBMVL_VECTOR **vec, void **vec_data)
 {
