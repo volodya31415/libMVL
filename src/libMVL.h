@@ -94,6 +94,8 @@ switch(type) {
  */
 typedef unsigned long long LIBMVL_OFFSET64;
 
+/*! @brief This structure is written at the beginning of MVL file. It contains the signature identifying MVL format, and a means to check the endiannes of the MVL file 
+ */
 typedef struct {
 	char signature[4];
 	float endianness;
@@ -102,12 +104,16 @@ typedef struct {
 	int reserved[13];
 	} LIBMVL_PREAMBLE;
 
+/*! @brief This structure is written last to close MVL file. It contains an offset to MVL directory that can be used to retrieve offsets to LIBMVL_VECTOR structures stored in MVL file
+ */
 typedef struct {
 	LIBMVL_OFFSET64 directory;
 	int type;
 	int reserved[13];
 	} LIBMVL_POSTAMBLE;
-	
+
+/*! @brief This structure describes the header of MVL vector. It is basically LIBMVL_VECTOR without the actual data
+ */
 typedef struct {
 	LIBMVL_OFFSET64 length;
 	int type;
@@ -383,6 +389,8 @@ void mvl_write_postamble(LIBMVL_CONTEXT *ctx);
 #define mvl_vector_data(data)   (*(((LIBMVL_VECTOR *)(data))))
 #endif
 
+/*! @brief Return offset to metadata of given LIBMVL_VECTOR
+ */
 #define mvl_vector_metadata_offset(data)   ((((LIBMVL_VECTOR_HEADER *)(data))->metadata))
 
 
@@ -611,6 +619,12 @@ LIBMVL_OFFSET64 mvl_find_directory_entry(LIBMVL_CONTEXT *ctx, const char *tag);
  */
 void mvl_load_image(LIBMVL_CONTEXT *ctx, LIBMVL_OFFSET64 length, const void *data);
 
+
+/*! @def LIBMVL_SORT_LEXICOGRAPHIC
+ *  Sort in ascending order
+ *  @def LIBMVL_SORT_LEXICOGRAPHIC_DESC
+ *  Sort in descending order
+ */
 #define LIBMVL_SORT_LEXICOGRAPHIC	1		/* Ascending */
 #define LIBMVL_SORT_LEXICOGRAPHIC_DESC	2		/* Descending */
 
@@ -624,6 +638,15 @@ void mvl_load_image(LIBMVL_CONTEXT *ctx, LIBMVL_OFFSET64 length, const void *dat
  * LIBMVL_PACKED_LIST64
  * 
  * This function return 0 on successful sort. If no vectors are supplies (vec_count==0) the indices are unchanged the sort is considered successful
+ */
+/*! @brief Given a table-like set of vectors of equal length arrange indices so that the columns are sorted lexicographically
+ * 
+ * @param indices_count  total number of indices 
+ * @param indices an array of indices into provided vectors
+ * @param vec_count the number of LIBMVL_VECTORS considered as columns in a table
+ * @param vec an array of pointers to LIBMVL_VECTORS considered as columns in a table
+ * @param vec_data an array of pointers to memory mapped areas those LIBMVL_VECTORs derive from. This allows computing hash from vectors drawn from different MVL files
+ * @param sort_function one of LIBMVL_SORT_LEXICOGRAPHIC or LIBMVL_SORT_LEXICOGRAPHIC_DESC to specify sort direction
  */
 int mvl_sort_indices(LIBMVL_OFFSET64 indices_count, LIBMVL_OFFSET64 *indices, LIBMVL_OFFSET64 vec_count, LIBMVL_VECTOR **vec, void **vec_data, int sort_function);
 
@@ -874,21 +897,36 @@ int mvl_hash_indices(LIBMVL_OFFSET64 indices_count, const LIBMVL_OFFSET64 *indic
  * 
  * The purpose of having index_size is to facilitate memory reuse by allocating the structure with index_size large enough to accomodate subsequent calls with different index_count
  */
+/*! @brief Flags describing HASH_MAP state
+ *  @def MVL_FLAG_OWN_HASH 
+ *   HASH_MAP member hash owns allocated memory
+ * @def MVL_FLAG_OWN_HASH_MAP
+ *   HASH_MAP member hash_map owns allocated memory
+ * @def MVL_FLAG_OWN_FIRST
+ *   HASH_MAP member first owns allocated memory
+ * @def MVL_FLAG_OWN_NEXT
+ *   HASH_MAP member next owns allocated memory
+ */
 #define MVL_FLAG_OWN_HASH	(1<<0)
 #define MVL_FLAG_OWN_HASH_MAP	(1<<1)
 #define MVL_FLAG_OWN_FIRST	(1<<2)
 #define MVL_FLAG_OWN_NEXT	(1<<3)
 
+/*! @brief This structure is used for constructing associative maps and also for describing index groupings
+ * 
+ *  This structure can either be allocated by mvl_allocate_hash_map() or constructed by the caller. In the latter case read comments describing size constraints.
+ *  The purpose of having index_size is to facilitate memory reuse by allocating the structure with index_size large enough to accomodate subsequent calls with different index_count
+ */
 typedef struct {
-	LIBMVL_OFFSET64 flags;
-	LIBMVL_OFFSET64 hash_count;   
-	LIBMVL_OFFSET64 hash_size; /* hash_count < hash_size */
-	LIBMVL_OFFSET64 hash_map_size; /* hash_map_size > hash_count */
-	LIBMVL_OFFSET64 first_count;
-	LIBMVL_OFFSET64 *hash;     /* original hashes of entries */
-	LIBMVL_OFFSET64 *hash_map; /* has hash_map_size entries */
-	LIBMVL_OFFSET64 *first;  /* has hash_size entries */
-	LIBMVL_OFFSET64 *next; /* has hash_size entries */
+	LIBMVL_OFFSET64 flags; //!< flags describing HASH_MAP state
+	LIBMVL_OFFSET64 hash_count; //!< Number of valid entries in hash, hash_count < hash_size and hash_count < hash_map_size
+	LIBMVL_OFFSET64 hash_size; //!< size of hash, first and next arrays
+	LIBMVL_OFFSET64 hash_map_size; //!<  size of hash_map array, should be power of 2
+	LIBMVL_OFFSET64 first_count;  //!< Number of valid entries in first array - this is populated by mvl_find_groups()
+	LIBMVL_OFFSET64 *hash;     //!<  Input hashes, used by mvl_compute_hash_map()
+	LIBMVL_OFFSET64 *hash_map; //!<  This is an associative table mapping hash & (hash_map_size-1) into indices in the "first" array
+	LIBMVL_OFFSET64 *first;  //!< array of indices in each group
+	LIBMVL_OFFSET64 *next; //!< array of next indices in each group. ~0LLU indicates end of group
 	} HASH_MAP;
 
 /* Compute suggested hash map size */
@@ -925,11 +963,15 @@ int mvl_find_matches(LIBMVL_OFFSET64 key_indices_count, const LIBMVL_OFFSET64 *k
  */
 void mvl_find_groups(LIBMVL_OFFSET64 indices_count, const LIBMVL_OFFSET64 *indices, LIBMVL_OFFSET64 vec_count, LIBMVL_VECTOR **vec, void **vec_data, HASH_MAP *hm);
 
+/*! @brief Vector statistics.
+ * 
+ *  This structure can be allocated on stack.
+ */
 typedef struct {
-	double max;
-	double min;
-	double center;
-	double scale;
+	double max; //!< maximum value of vector entries
+	double min; //!< minimum value of vector entries
+	double center; //!< a value in the "middle" of the vector
+	double scale;  //!< normalization scale
 	} LIBMVL_VEC_STATS;
 
 void mvl_compute_vec_stats(const LIBMVL_VECTOR *vec, LIBMVL_VEC_STATS *stats);

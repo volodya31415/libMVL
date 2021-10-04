@@ -182,7 +182,21 @@ match records on particular fields. This is typically accomplished with a databa
 
 An MVL file can act as a database that an application has a direct access to. Since the access is unrestricted any set of vectors with the same number of elements can be considered a "table". However, it is often convenient to organize them into a LIBMVL_NAMED_LIST which tags are interpreted as column names.
 
-libMVL has a number of functions that make it easier to use and manage tables.
+libMVL has a number of functions that make it easier to use and manage tables:
+
+* mvl_sort_indices() obtains permutations that sort rows
+
+* mvl_hash_indices() obtains 64-bit hash that identify rows for further processing. The hashes have good statistical properties and can be truncated to any number of bits. The hashing is done by value, so 100 will produce the same hash when stored as either 32 or 64 bit integer.
+
+* mvl_compute_hash_map() computes an associative array that maps hashes to corresponding groups of rows. Also see mvl_allocate_hash_map(), 
+mvl_compute_hash_map_size(), mvl_free_hash_map()
+
+* mvl_find_matches() finds exact matches between two sets of rows using a previously computed hash_map. The matches are first identified using hashes and then
+rows are compared for equality. The comparison is done by value, so it does not matter whether 100 is stored as 32 or 64 bits integer. Also see mvl_hash_match_count() which provides estimates of number of matches useful for allocating arrays.
+
+* mvl_find_groups() transforms a previously computed hash map into a set of groups of identical rows.
+
+* mvl_normalize_vector() computes statistics useful for construction of spatial indices
 
 
 

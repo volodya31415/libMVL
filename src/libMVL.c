@@ -665,7 +665,7 @@ if(ctx->character_class_offset==0) {
 return(ctx->character_class_offset);
 }
 
-/*! @brief Add entry to the top level directory of MVL file. 
+/*! @brief Add an entry to the top level directory of MVL file. 
  *   @param ctx MVL context pointer that has been initialized for writing
  *   @param offset directory entry value - typically an offset pointing to previously written MVL object
  *   @param tag  C string describing directory entry. When necessary, these can repeat, in which case the last written entry is retrieved first.
@@ -1723,6 +1723,11 @@ for(i=0;i<indices_count;i++) {
 return 0;
 }
 
+/*! @brief
+ *  Compute suggested size of hash map given the number of entries to hash. Hash map size should always be a power of 2.
+ *  @param hash_count expected number of items to hash
+ *  @return suggested hash map size
+ */
 LIBMVL_OFFSET64 mvl_compute_hash_map_size(LIBMVL_OFFSET64 hash_count)
 {
 LIBMVL_OFFSET64 hash_map_size;
@@ -1736,6 +1741,12 @@ while(hash_map_size<hash_count) {
 return(hash_map_size);
 }
 
+/*! @brief Create HASH_MAP structure. 
+ * 
+ *  This creates default HASH_MAP structure with all members allocated with new arrays. In some situations, such as to save memory it is possible to reuse existing arrays by specifying hm->flags appropriately. In such case, one should not use this constructor and instead create the structure manually.
+ *  @param max_index_count expected number of entries to hash
+ *  @return pointer to allocated HASH_MAP structure
+ */
 HASH_MAP *mvl_allocate_hash_map(LIBMVL_OFFSET64 max_index_count)
 {
 HASH_MAP *hm;
@@ -1755,6 +1766,9 @@ hm->flags=MVL_FLAG_OWN_HASH | MVL_FLAG_OWN_HASH_MAP | MVL_FLAG_OWN_FIRST | MVL_F
 return(hm);
 }
 
+/*! @brief Free allocated HASH_MAP
+ *  @param hash_map a pointer to previously allocated hash_map structure
+ */
 void mvl_free_hash_map(HASH_MAP *hash_map)
 {
 if(hash_map->flags & MVL_FLAG_OWN_HASH)free(hash_map->hash);
@@ -1767,7 +1781,9 @@ hash_map->hash_map_size=0;
 free(hash_map);
 }
 
-
+/*! @brief Compute hash map. This assumes that hm->hash array has been populated with hm->hash_count hashes computed with mvl_hash_indices().
+ *  @param hm a pointer to HASH_MAP structure
+ */
 void mvl_compute_hash_map(HASH_MAP *hm)
 {
 LIBMVL_OFFSET64 i, k, hash_mask, N_first, hash_count;
@@ -1827,7 +1843,13 @@ if(hash_mask & hash_map_size) {
 hm->first_count=N_first;
 }
 
-/* Find count of matches between hashes of two sets. 
+/*! @brief Find count of matches between hashes of two sets. 
+ * 
+ * This function is useful to find the upper limit on the number of possible matches, so one can allocate arrays for the result or plan computation in some other way.
+ *  @param key_count number of key hashes
+ *  @param key_hash an array of key hashes to query
+ *  @param hm a pointer to HASH_MAP structure
+ *  @return number of matches
  */
 LIBMVL_OFFSET64 mvl_hash_match_count(LIBMVL_OFFSET64 key_count, const LIBMVL_OFFSET64 *key_hash, HASH_MAP *hm)
 {
@@ -1907,6 +1929,32 @@ if(hash_map_size & hash_mask) {
  * An auxiliary array key_last of length key_indices_count stores the stop before index (in terms of matches array). 
  * In particular the total number of matches is given by key_last[key_indices_count-1]
  */
+/*! @brief Compute pairs of merge indices. This is similar to JOIN operation in SQL.
+ * 
+ * This function takes two table like sets of vectors as input. The vectors in each table set have to be of equal number of elements. 
+ * We also take two index arrays specifying rows in each table set. We then find pairs of indices where the rows are identical.
+ * 
+ * The output is returned in pair of preallocated arrays key_match_indices and match_indices. The pairs are arrange in stretches of identical "key" rows. 
+ * Those stretches are described by key_last array.
+ * 
+ *  @param key_indices_count  number of entries in key_indices array
+ *  @param key_indices an array with indices into "key" table-like vector set
+ *  @param key_vec_count number of vectors in "key" table set
+ *  @param key_vec an array of vectors in "key" table set
+ *  @param key_vec_data an array of pointers to memory mapped areas those "key" vectors derive from. This allows computing hash from vectors drawn from different MVL files
+ *  @param key_hash an array of hashes of "key" vectors computed with mvl_hash_indices()
+ *  @param indices_count  number of entries in indices array
+ *  @param indices an array with indices into "main" table-like vector set
+ *  @param vec_count number of vectors in "main" table set
+ *  @param vec an array of vectors in "main" table set
+ *  @param vec_data an array of pointers to memory mapped areas those "main" vectors derive from. This allows computing hash from vectors drawn from different MVL files
+ *  @param hm a previosly computed HASH_MAP of "main" table set
+ *  @param key_last this is an output array of size key_indices_count that describes stretches of matches with indentical "key" rows. Thus for "key" row i, the corresponding stretch is key_last[i-1] to key_last[i]-1
+ *  @param pairs_size the size of allocated key_match_indices and match_indices arrays. This value can be computed with mvl_hash_match_count().
+ *  @param key_match_indices an array of "key" indices from each pair
+ *  @param match_indices an array of "main" indices from each pair
+ *  @return 0 if everything went well, otherwise a negative error code
+ */
 int mvl_find_matches(LIBMVL_OFFSET64 key_indices_count, const LIBMVL_OFFSET64 *key_indices, LIBMVL_OFFSET64 key_vec_count, LIBMVL_VECTOR **key_vec, void **key_vec_data, LIBMVL_OFFSET64 *key_hash,
 			   LIBMVL_OFFSET64 indices_count, const LIBMVL_OFFSET64 *indices, LIBMVL_OFFSET64 vec_count, LIBMVL_VECTOR **vec, void **vec_data, HASH_MAP *hm, 
 			   LIBMVL_OFFSET64 *key_last, LIBMVL_OFFSET64 pairs_size, LIBMVL_OFFSET64 *key_match_indices, LIBMVL_OFFSET64 *match_indices)
@@ -1971,8 +2019,17 @@ if(hash_map_size & hash_mask) {
 return(0);
 }
 
-/* This function transforms HASH_MAP into a list of groups. 
+/*! @brief This function transforms HASH_MAP into a list of groups. Similar to GROUP BY clause in SQL.
+ * 
+ * The original HASH_MAP describes groups of rows with identical hashes. However, there is a (remote) possibility of collision where different rows have the same hash. This function resolves this ambiguity.
  * After calling hm->hash_map becomes invalid, but hm->first and hm->next describe exactly identical rows 
+ * 
+ *  @param indices_count number of elements in indices array
+ *  @param indices an array of indices used to create HASH_MAP hm
+ *  @param vec_count the number of LIBMVL_VECTORS considered as columns in a table
+ *  @param vec an array of pointers to LIBMVL_VECTORS considered as columns in a table
+ *  @param vec_data an array of pointers to memory mapped areas those LIBMVL_VECTORs derive from. This allows computing hash from vectors drawn from different MVL 
+ *  @param hm a previously computed (with mvl_compute_hash_map()) HASH_MAP
  */
 void mvl_find_groups(LIBMVL_OFFSET64 indices_count, const LIBMVL_OFFSET64 *indices, LIBMVL_OFFSET64 vec_count, LIBMVL_VECTOR **vec, void **vec_data, HASH_MAP *hm)
 {
@@ -2037,6 +2094,10 @@ for(i=0;i<first_count;i++) {
 hm->first_count=group_count;
 }
 
+/*! @brief Compute vector statistics, such as a bounding box
+ *  @param vec a pointer to LIBMVL_VECTOR
+ *  @param stats a pointer to previously allocated LIBMVL_VEC_STATS structure
+ */
 void mvl_compute_vec_stats(const LIBMVL_VECTOR *vec, LIBMVL_VEC_STATS *stats)
 {
 if(mvl_vector_length(vec)<1) {
@@ -2131,6 +2192,15 @@ switch(mvl_vector_type(vec)) {
 	}
 }
 
+/*!  @brief normalize vector
+ * 
+ *   This function converts numeric vectors into a normalized double precision entries. Indices i0 and i1 specify the stretch of indices to normalize. This facilitates processing of very long vectors in pieces.
+ *   @param vec a pointer to LIBMVL_VECTOR
+ *   @param stats previously allocated LIBMVL_VEC_STATS structure
+ *   @param i0 start index of stretch to process
+ *   @param i1 stop index of stretch to process
+ *   @param out array of normalized entries of size i1-i0. First entry corresponds to index i0
+ */
 void mvl_normalize_vector(const LIBMVL_VECTOR *vec, const LIBMVL_VEC_STATS *stats, LIBMVL_OFFSET64 i0, LIBMVL_OFFSET64 i1, double *out)
 {
 double scale, center;
