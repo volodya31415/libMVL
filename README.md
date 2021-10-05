@@ -39,26 +39,27 @@ C interface to libMVL
 
 Each MVL file whether read, written or memory mapped needs its own LIBMVL_CONTEXT:
 
-> LIBMVL_CONTEXT *ctx=mvl_create_context();
+    LIBMVL_CONTEXT *ctx=mvl_create_context();
 
 The context is destroyed using mvl_free_context(ctx);
 
 In order to write to the MVL file the user needs to provide stdio FILE pointer using mvl_open():
 
-> FILE *fout=fopen("test.mvl", "w");
->
-> mvl_open(ctx, fout);
+```
+    FILE *fout=fopen("test.mvl", "w");
 
+    mvl_open(ctx, fout);
+```
 
 When the user is finished writing to MVL file it needs to be closed with:
 
-> mvl_close(ctx);
+    mvl_close(ctx);
 
 before the context is destroyed.
 
 Individual vectors can be written with mvl_write_vector():
 
-> LIBMVL_OFFSET64 ofs=mvl_write_vector(ctx, TYPE, LENGTH, DATA, METADATA);
+    LIBMVL_OFFSET64 ofs=mvl_write_vector(ctx, TYPE, LENGTH, DATA, METADATA);
 
 The TYPE can be any of elementary types described in libMVL.h. LENGTH describes the number of elements
 of given type in DATA, which is a pointer an array. Each element of DATA has size that can be retrieved with mvl_element_size(TYPE).
@@ -73,7 +74,7 @@ As you write MVL vectors you obtain offsets into the MVL file where these vector
 These offsets can be stored in an offset array (LIBMVL_VECTOR_OFFSET64) to be written as LIBMVL_VECTOR_OFFSET64, or they can 
 be recorded in the directory with:
 
-> mvl_add_directory_entry(ctx, ofs, TAG);
+    mvl_add_directory_entry(ctx, ofs, TAG);
 
 The TAG memory is a character string that allows to retrieve the offset later when the file is opened. The TAGs do not have to be unique, but this is recommended.
 The directory is scanned backwards so that the TAG written last is retrieved first. 
@@ -83,18 +84,18 @@ The directory is written out by mvl_close(ctx), this call is essential to produc
 To access previously written MVL file the user loads the data by reading it or memory mapping the file.
 Then the program should call
 
-> char * MAPPED_FILE;
-> mvl_load_image(ctx, LENGTH, MAPPED_FILE)
+    char * MAPPED_FILE;
+    mvl_load_image(ctx, LENGTH, MAPPED_FILE)
 
 where MAPPED_FILE is the pointer to the loaded file, and LENGTH is the length of file. It is important to get the LENGTH right, so that the postamble can be accessed to load the directory.
 
 Once the image is loaded, the directory can be accessed with
 
-> ofs=mvl_find_directory_entry(ctx, TAG)
+    ofs=mvl_find_directory_entry(ctx, TAG)
 
 Assuming MAPPED_FILE is a pointer to char, the vectors can be accessed as
 
-> LIBMVL_VECTOR *vec=(LIBMVL_VECTOR *) &(MAPPED_FILE[ofs]);
+    LIBMVL_VECTOR *vec=(LIBMVL_VECTOR *) &(MAPPED_FILE[ofs]);
 
 Some convenience functions for accessing vector data:
 
@@ -117,7 +118,7 @@ This is facilitated with LIBMVL_NAMED_LIST structure.
 
 One creates it with 
 
-> LIBMVL_NAMED_LIST *L=mvl_create_named_list(SIZE);
+    LIBMVL_NAMED_LIST *L=mvl_create_named_list(SIZE);
 
 SIZE is the expected size of the list, but it will grow as needed.
 
@@ -127,25 +128,27 @@ Elements are added to the list with mvl_add_list_entry() and retrieved with mvl_
 
 The list can be written to MVL file via: 
 
-> ofs=mvl_write_named_list(ctx, L);
+    ofs=mvl_write_named_list(ctx, L);
 
 It can be read from loaded data with 
 
-> L=mvl_read_named_list(ctx, MAPPED_FILE, ofs);
+    L=mvl_read_named_list(ctx, MAPPED_FILE, ofs);
 
 To accomodate named metadata attributes, it is stored as named list:
 
-> moffset=mvl_write_attributes_list(ctx, L);
->
-> L=mvl_read_attributes_list(ctx, MAPPED_FILE, moffset);
+```
+    moffset=mvl_write_attributes_list(ctx, L);
 
+    L=mvl_read_attributes_list(ctx, MAPPED_FILE, moffset);
+```
+    
 There are convenience function that create metadata easily interpretable by R:
 
-> L=mvl_create_R_attributes_list(ctx, RCLASS);
+    L=mvl_create_R_attributes_list(ctx, RCLASS);
 
 RCLASS is character string giving a name of one of R classes.
 
-> moffset=mvl_write_named_list_as_data_frame(ctx, L, nrows, LIBMVL_OFFSET64 rownames_offset);
+    moffset=mvl_write_named_list_as_data_frame(ctx, L, nrows, LIBMVL_OFFSET64 rownames_offset);
 
 This creates metadata for R-style data frame - a list of equal length vectors. This is equivalent to a table in a database.
 The argument rownames_offset is optional - if it is 0, rownames would be created upon loading to R.
@@ -153,7 +156,7 @@ The argument rownames_offset is optional - if it is 0, rownames would be created
 Sometimes one needs to create very short vectors with just a few members. For example, the "dim" metadata attribute gives array dimensions and 
 usually has just a few entries. This can be done conveniently with macro MVL_WVEC() that allows inline writing of vectors:
 
-> ofs=MVL_WVEC(ctx, TYPE, ...);
+    ofs=MVL_WVEC(ctx, TYPE, ...);
 
 Here TYPE is any of the elementary types (such as LIBMVL_VECTOR_INT64 for 64 bit integers), and ... are the elements of the MVL vector.
 
@@ -163,11 +166,13 @@ Often one only needs to write the same string repeatedly - for this there is a f
 
 To store vectors of strings of arbirary length efficiently one can use the following helper functions:
 
-> ofs=mvl_write_packed_list(ctx, COUNT, STR_SIZE, STRINGS, METADATA);
->
-> size=mvl_packed_list_get_entry_bytelength(VEC, IDX)
->
-> const char * str=mvl_packed_list_get_entry(VEC, MAPPED_FILE, IDX)
+```
+    ofs=mvl_write_packed_list(ctx, COUNT, STR_SIZE, STRINGS, METADATA);
+
+    size=mvl_packed_list_get_entry_bytelength(VEC, IDX)
+
+    const char * str=mvl_packed_list_get_entry(VEC, MAPPED_FILE, IDX)
+```
 
 Here COUNT is the number of strings to be written out (i.e. the length of string array), STR_SIZE is the array of individual string lengths. STR_SIZE could be NULL in which case string lengths are computed automatically. If any STR_SIZE element is negative then the length of corresponding string is computed automatically. STRINGS is an array of char * pointers.
 
