@@ -1,0 +1,17 @@
+/*! @page  example2 Example demonstrating reading of MVL file in R
+ *
+ *  @brief Example code showing how to read an MVL file in R
+ *
+ *  
+ *
+ *  In this example we read "test1.mvl" that was created in example1
+ *  In real programs, R could be used to visualize output data, process statistics, or perform other analysis.
+ *  R can also write to MVL files - see documentation for package MVL.
+ *
+ *  To run this example start R interpreter and execute:
+ *
+ *  >    source("example2.R")
+ *
+ *  @include example2.R
+ *
+ */

@@ -1,0 +1,12 @@
+/*! @page  example1 Example demonstrating creation of MVL file in C
+ *
+ *  @brief Example code showing how to write an MVL file in C
+ *
+ *  
+ *
+ *  In this example we create an R-style "data.frame" - i.e. a table with columns of 4 basic types.
+ *  We also save some additional data, which in a real program would configuration parameters, execution details and/or diagnostics
+ *
+ *  @include example1.c
+ *
+ */

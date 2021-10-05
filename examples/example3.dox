@@ -1,0 +1,16 @@
+/*! @page  example3 Example demonstrating reading of MVL file in C
+ *
+ *  @brief Example code showing how to read an MVL file in C
+ *
+ *  
+ *
+ *  In this example we read "test1.mvl" that was created in example1.
+ *
+ *  The file is opened and memory mapped into the process. After this the file handle
+ *  is released and we associated the memory mapped area with a LIBMVL_CONTEXT.
+ *
+ *  We read back the named list that contains the offsets to the table columns and then access them.
+ *
+ *  @include example3.c
+ *
+ */
