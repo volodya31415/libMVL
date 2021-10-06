@@ -121,14 +121,15 @@ typedef struct {
 	LIBMVL_OFFSET64 metadata;
 	} LIBMVL_VECTOR_HEADER;
 	
-	
 #ifndef MVL_STATIC_MEMBERS
 #ifdef __SANITIZE_ADDRESS__
 #define MVL_STATIC_MEMBERS 0
+#warning "Address sanitizer active, using C11 definition of LIBMVL_VECTOR"
 #else
 #ifdef __clang__
 #if __has_feature(address_sanitizer)
 #define MVL_STATIC_MEMBERS 0
+#warning "Address sanitizer active, using C11 definition of LIBMVL_VECTOR"
 #else
 #define MVL_STATIC_MEMBERS 1
 #endif
@@ -164,8 +165,7 @@ typedef struct {
  * to describe variable size payloads.
  */
 	
-typedef struct {
-	union {
+typedef union {
 		struct {
 		LIBMVL_VECTOR_HEADER header;
 		unsigned char b[];
@@ -189,7 +189,6 @@ typedef struct {
 		struct {
 		LIBMVL_VECTOR_HEADER header5;
 		LIBMVL_OFFSET64 offset[];
-		};
 		};
 	} LIBMVL_VECTOR;
 #endif
