@@ -99,11 +99,60 @@ void mvl_set_error(LIBMVL_CONTEXT *ctx, int error)
 ctx->error=error;
 if(ctx->abort_on_error) {
 #ifdef USING_R
-	Rprintf("*** ERROR: libMVL code %d\n", error);
+	Rprintf("*** ERROR: libMVL code %d: %s\n", error, mvl_strerror(ctx));
 #else
-	fprintf(stderr, "*** ERROR: libMVL code %d\n", error);
+	fprintf(stderr, "*** ERROR: libMVL code %d: %s\n", error, mvl_strerror(ctx));
 	exit(-1);
 #endif
+	}
+}
+
+/*! @brief Obtain description of error code
+ *  @param ctx pointer to context previously allocated with mvl_create_context()
+ *  @return pointer to C string which memory is owned by the context
+ */
+const char * mvl_strerror(LIBMVL_CONTEXT *ctx)
+{
+switch(ctx->error) {
+	case 0:  
+		return("no error");
+	case LIBMVL_ERR_FAIL_PREAMBLE:
+		return("invalid preamble");
+	case LIBMVL_ERR_FAIL_POSTAMBLE:
+		return("invalid postamble");
+	case LIBMVL_ERR_UNKNOWN_TYPE	:
+		return("unknown type");
+	case LIBMVL_ERR_FAIL_VECTOR:
+		return("unknown type");
+	case LIBMVL_ERR_INCOMPLETE_WRITE:
+		return("incomplete write");
+	case LIBMVL_ERR_INVALID_SIGNATURE:
+		return("invalid signature");
+	case LIBMVL_ERR_WRONG_ENDIANNESS:
+		return("wrong endianness");
+	case LIBMVL_ERR_EMPTY_DIRECTORY:
+		return("empty MVL directory");
+	case LIBMVL_ERR_INVALID_DIRECTORY:
+		return("invalid MVL directory");
+	case LIBMVL_ERR_FTELL:
+		return("call to ftell() failed");
+	case LIBMVL_ERR_CORRUPT_POSTAMBLE:
+		return("corrupt postmable");
+	case LIBMVL_ERR_INVALID_ATTR_LIST:
+		return("invalid attribute list");
+	case LIBMVL_ERR_INVALID_OFFSET:
+		return("invalid offset");
+	case LIBMVL_ERR_INVALID_ATTR:
+		return("invalid attributes");
+	case LIBMVL_ERR_CANNOT_SEEK:
+		return("seek() call failed");
+	case LIBMVL_ERR_INVALID_PARAMETER:
+		return("invalid parameter");
+	case LIBMVL_ERR_INVALID_LENGTH:
+		return("invalid length");
+	default:
+		return("unknown error");
+	
 	}
 }
 

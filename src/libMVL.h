@@ -261,6 +261,8 @@ typedef struct {
 LIBMVL_CONTEXT *mvl_create_context(void);
 void mvl_free_context(LIBMVL_CONTEXT *ctx);
 
+const char * mvl_strerror(LIBMVL_CONTEXT *ctx);
+
 /*! @brief Use this constant to specify that no metadata should be written 
  */
 #define LIBMVL_NO_METADATA 	0
