@@ -2154,19 +2154,32 @@ if(mvl_vector_length(vec)<1) {
 	stats->min=1;
 	stats->center=0.0;
 	stats->scale=0.0;
+	stats->nrepeat=0;
+	stats->average_repeat_length=0.0;
 	return;
 	}
 switch(mvl_vector_type(vec)) {
 	case LIBMVL_VECTOR_DOUBLE: {
 		double a0, a1, b;
 		double *pd=mvl_vector_data(vec).d;
+		LIBMVL_OFFSET64 nrepeat;
+		double prev;
 		a0=pd[0];
 		a1=a0;
+		prev=a0;
+		nrepeat=0;
 		for(LIBMVL_OFFSET64 i=1;i<mvl_vector_length(vec);i++) {
 			b=pd[i];
 			if(b>a1)a1=b;
 			if(b<a0)a0=b;
+			if(b!=prev) {
+				nrepeat++;
+				prev=b;
+				}
 			}
+		nrepeat++;
+		stats->nrepeat=nrepeat;
+		stats->average_repeat_length=(1.0*mvl_vector_length(vec))/nrepeat;
 		stats->max=a1;
 		stats->min=a0;
 		stats->center=(a0+a1)*0.5;
@@ -2179,13 +2192,24 @@ switch(mvl_vector_type(vec)) {
 	case LIBMVL_VECTOR_FLOAT: {
 		float a0, a1, b;
 		float *pd=mvl_vector_data(vec).f;
+		LIBMVL_OFFSET64 nrepeat;
+		float prev;
 		a0=pd[0];
 		a1=a0;
+		prev=a0;
+		nrepeat=0;
 		for(LIBMVL_OFFSET64 i=1;i<mvl_vector_length(vec);i++) {
 			b=pd[i];
 			if(b>a1)a1=b;
 			if(b<a0)a0=b;
+			if(b!=prev) {
+				nrepeat++;
+				prev=b;
+				}
 			}
+		nrepeat++;
+		stats->nrepeat=nrepeat;
+		stats->average_repeat_length=(1.0*mvl_vector_length(vec))/nrepeat;
 		stats->max=a1;
 		stats->min=a0;
 		stats->center=(a0+a1)*0.5;
@@ -2198,13 +2222,24 @@ switch(mvl_vector_type(vec)) {
 	case LIBMVL_VECTOR_INT32: {
 		int a0, a1, b;
 		int *pd=mvl_vector_data(vec).i;
+		LIBMVL_OFFSET64 nrepeat;
+		int prev;
 		a0=pd[0];
 		a1=a0;
+		prev=a0;
+		nrepeat=0;
 		for(LIBMVL_OFFSET64 i=1;i<mvl_vector_length(vec);i++) {
 			b=pd[i];
 			if(b>a1)a1=b;
 			if(b<a0)a0=b;
+			if(b!=prev) {
+				nrepeat++;
+				prev=b;
+				}
 			}
+		nrepeat++;
+		stats->nrepeat=nrepeat;
+		stats->average_repeat_length=(1.0*mvl_vector_length(vec))/nrepeat;
 		stats->max=a1;
 		stats->min=a0;
 		stats->center=(a0*1.0+a1*1.0)*0.5;
@@ -2217,13 +2252,24 @@ switch(mvl_vector_type(vec)) {
 	case LIBMVL_VECTOR_INT64: {
 		long long int a0, a1, b;
 		long long int *pd=mvl_vector_data(vec).i64;
+		LIBMVL_OFFSET64 nrepeat;
+		long long int prev;
 		a0=pd[0];
 		a1=a0;
+		prev=a0;
+		nrepeat=0;
 		for(LIBMVL_OFFSET64 i=1;i<mvl_vector_length(vec);i++) {
 			b=pd[i];
 			if(b>a1)a1=b;
 			if(b<a0)a0=b;
+			if(b!=prev) {
+				nrepeat++;
+				prev=b;
+				}
 			}
+		nrepeat++;
+		stats->nrepeat=nrepeat;
+		stats->average_repeat_length=(1.0*mvl_vector_length(vec))/nrepeat;
 		stats->max=a1;
 		stats->min=a0;
 		stats->center=(a0*1.0+a1*1.0)*0.5;
@@ -2238,6 +2284,8 @@ switch(mvl_vector_type(vec)) {
 		stats->min=1;
 		stats->center=0.0;
 		stats->scale=0.0;
+		stats->nrepeat=0;
+		stats->average_repeat_length=0.0;
 	}
 }
 

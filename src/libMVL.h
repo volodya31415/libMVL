@@ -390,6 +390,37 @@ void mvl_write_postamble(LIBMVL_CONTEXT *ctx);
 #define mvl_vector_data(data)   (*(((LIBMVL_VECTOR *)(data))))
 #endif
 
+
+/*! 
+ *  @def mvl_vector_data_uint8(data)
+ * 	Access UINT8 array of LIBMVL_VECTOR
+ * 	
+ *  @def mvl_vector_data_int32(data)
+ * 	Access INT32 array of LIBMVL_VECTOR
+ * 	
+ *  @def mvl_vector_data_int64(data)
+ * 	Access INT64 array of LIBMVL_VECTOR
+ * 	
+ *  @def mvl_vector_data_float(data)
+ * 	Access FLOAT array of LIBMVL_VECTOR
+ * 	
+ *  @def mvl_vector_data_double(data)
+ * 	Access DOUBLE array of LIBMVL_VECTOR
+ * 	
+ *  @def mvl_vector_data_offset(data)
+ * 	Access LIBMVL_OFFSET64 array of LIBMVL_VECTOR
+ * 	
+ * 
+ * 
+ */
+
+#define mvl_vector_data_uint8(data)	((unsigned char *)(((const char *) data)+sizeof(LIBMVL_VECTOR_HEADER)))
+#define mvl_vector_data_int32(data)	((int *)(((const char *) data)+sizeof(LIBMVL_VECTOR_HEADER)))
+#define mvl_vector_data_int64(data)	((long long int *)(((const char *) data)+sizeof(LIBMVL_VECTOR_HEADER)))
+#define mvl_vector_data_float(data)	((float *)(((const char *) data)+sizeof(LIBMVL_VECTOR_HEADER)))
+#define mvl_vector_data_double(data)	((double *)(((const char *) data)+sizeof(LIBMVL_VECTOR_HEADER)))
+#define mvl_vector_data_offset(data)	((LIBMVL_OFFSET64 *)(((const char *) data)+sizeof(LIBMVL_VECTOR_HEADER)))
+
 /*! @brief Return offset to metadata of given LIBMVL_VECTOR
  */
 #define mvl_vector_metadata_offset(data)   ((((LIBMVL_VECTOR_HEADER *)(data))->metadata))
@@ -973,6 +1004,8 @@ typedef struct {
 	double min; //!< minimum value of vector entries
 	double center; //!< a value in the "middle" of the vector
 	double scale;  //!< normalization scale
+	double average_repeat_length; //!< average length of stretch with identical elements
+	double nrepeat; //!< number of stretches with identical elements
 	} LIBMVL_VEC_STATS;
 
 void mvl_compute_vec_stats(const LIBMVL_VECTOR *vec, LIBMVL_VEC_STATS *stats);
