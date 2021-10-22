@@ -56,6 +56,58 @@ p[len]=0;
 return(p);
 }
 
+#ifndef HAVE_POSIX_FALLOCATE
+
+#if _POSIX_C_SOURCE >= 200112L
+#define HAVE_POSIX_FALLOCATE 1
+#else
+#define HAVE_POSIX_FALLOCATE 0
+#endif
+
+#endif
+
+static int do_fallocate(FILE *f, LIBMVL_OFFSET64 offset, LIBMVL_OFFSET64 len)
+{
+#if HAVE_POSIX_FALLOCATE
+
+return(posix_fallocate(fileno(f), offset, len));
+
+#else
+
+size_t cur, end, i;
+int err;
+#ifndef FALLOCATE_BUF_SIZE
+#define FALLOCATE_BUF_SIZE 512
+#endif
+char buf[FALLOCATE_BUF_SIZE];
+
+cur=ftello(f);
+if(cur<0)return(cur);
+
+if((err=fseeko(f, 0, SEEK_END))<0) {
+	return(err);
+	}
+	
+end=ftello(f);
+if(end<0)return(end);
+	
+if(end>=(offset+len))return(0);
+
+memset(buf, 0, FALLOCATE_BUF_SIZE);
+
+for(i=end;i<offset+len;i+=FALLOCATE_BUF_SIZE) {
+	int cnt=offset+len-i;
+	if(cnt>FALLOCATE_BUF_SIZE)cnt=FALLOCATE_BUF_SIZE;
+	fwrite(buf, 1, cnt, f);
+	}
+	
+if((err=fseeko(f, cur, SEEK_SET))<0) {
+	return(err);
+	}
+return(0);	
+#endif
+}
+
 /*!  @brief Create MVL context 
  *   @return A pointer to allocated LIBMVL_CONTEXT structure
  */
@@ -316,7 +368,10 @@ if((long long)offset<0) {
 	return(LIBMVL_NULL_OFFSET);
 	}
 	
-posix_fallocate(fileno(ctx->f), offset, sizeof(ctx->tmp_vh)+total_byte_length+padding);
+if(do_fallocate(ctx->f, offset, sizeof(ctx->tmp_vh)+total_byte_length+padding)) {
+	mvl_set_error(ctx, LIBMVL_ERR_INCOMPLETE_WRITE);
+	return(LIBMVL_NULL_OFFSET);
+	}
 
 mvl_write(ctx, sizeof(ctx->tmp_vh), &ctx->tmp_vh);
 if(byte_length>0)mvl_write(ctx, byte_length, data);
