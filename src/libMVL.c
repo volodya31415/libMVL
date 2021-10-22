@@ -10,6 +10,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <stdarg.h>
+#include <fcntl.h>
 #ifndef __WIN32__
 #include <alloca.h>
 #else
@@ -213,7 +214,7 @@ mvl_write(ctx, sizeof(ctx->tmp_postamble), &ctx->tmp_postamble);
  *   @param metadata an optional offset to previously written metadata. Specify LIBMVL_NO_METADATA if not needed
  *   @return an offset into the file, suitable for adding to MVL file directory, or to other MVL objects
  */
-LIBMVL_OFFSET64 mvl_write_vector(LIBMVL_CONTEXT *ctx, int type, long length, const void *data, LIBMVL_OFFSET64 metadata)
+LIBMVL_OFFSET64 mvl_write_vector(LIBMVL_CONTEXT *ctx, int type, LIBMVL_OFFSET64 length, const void *data, LIBMVL_OFFSET64 metadata)
 {
 LIBMVL_OFFSET64 byte_length;
 int padding;
@@ -263,7 +264,7 @@ return(offset);
  *   @param metadata an optional offset to previously written metadata. Specify LIBMVL_NO_METADATA if not needed
  *   @return an offset into the file, suitable for adding to MVL file directory, or to other MVL objects
  */
-LIBMVL_OFFSET64 mvl_start_write_vector(LIBMVL_CONTEXT *ctx, int type, long expected_length, long length, const void *data, LIBMVL_OFFSET64 metadata)
+LIBMVL_OFFSET64 mvl_start_write_vector(LIBMVL_CONTEXT *ctx, int type, LIBMVL_OFFSET64 expected_length, LIBMVL_OFFSET64 length, const void *data, LIBMVL_OFFSET64 metadata)
 {
 LIBMVL_OFFSET64 byte_length, total_byte_length;
 int padding;
@@ -314,6 +315,8 @@ if((long long)offset<0) {
 	mvl_set_error(ctx, LIBMVL_ERR_FTELL);
 	return(LIBMVL_NULL_OFFSET);
 	}
+	
+posix_fallocate(fileno(ctx->f), offset, sizeof(ctx->tmp_vh)+total_byte_length+padding);
 
 mvl_write(ctx, sizeof(ctx->tmp_vh), &ctx->tmp_vh);
 if(byte_length>0)mvl_write(ctx, byte_length, data);
@@ -329,7 +332,7 @@ if(padding>0) {
 	memset(zeros, 0, padding);
 	mvl_write(ctx, padding, zeros);
 	}
-
+	
 return(offset);
 }
 

@@ -272,10 +272,10 @@ const char * mvl_strerror(LIBMVL_CONTEXT *ctx);
 #define LIBMVL_NULL_OFFSET 	0
 
 
-LIBMVL_OFFSET64 mvl_write_vector(LIBMVL_CONTEXT *ctx, int type, long length, const void *data, LIBMVL_OFFSET64 metadata);
+LIBMVL_OFFSET64 mvl_write_vector(LIBMVL_CONTEXT *ctx, int type, LIBMVL_OFFSET64 length, const void *data, LIBMVL_OFFSET64 metadata);
 
 /* This is identical to mvl_write_vector() except that it allows to reserve space for more data than is supplied. */
-LIBMVL_OFFSET64 mvl_start_write_vector(LIBMVL_CONTEXT *ctx, int type, long expected_length, long length, const void *data, LIBMVL_OFFSET64 metadata);
+LIBMVL_OFFSET64 mvl_start_write_vector(LIBMVL_CONTEXT *ctx, int type, LIBMVL_OFFSET64 expected_length, LIBMVL_OFFSET64 length, const void *data, LIBMVL_OFFSET64 metadata);
 /* Rewrite data in already written vector with offset base_offset */
 /* In particular this allows vectors to be built up in pieces, by calling mvl_start_write_vector first */
 void mvl_rewrite_vector(LIBMVL_CONTEXT *ctx, int type, LIBMVL_OFFSET64 base_offset, LIBMVL_OFFSET64 idx, long length, const void *data);
