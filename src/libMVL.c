@@ -203,6 +203,8 @@ switch(ctx->error) {
 		return("invalid parameter");
 	case LIBMVL_ERR_INVALID_LENGTH:
 		return("invalid length");
+	case LIBMVL_ERR_INVALID_EXTENT_INDEX:
+		return("invalid extent index");
 	default:
 		return("unknown error");
 	
@@ -1750,13 +1752,16 @@ return 0;
  * @param vec_count the number of LIBMVL_VECTORS considered as columns in a table
  * @param vec an array of pointers to LIBMVL_VECTORS considered as columns in a table
  * @param vec_data an array of pointers to memory mapped areas those LIBMVL_VECTORs derive from. This allows computing hash from vectors drawn from different MVL files
+ * @param flags flags specifying whether to initialize or finalize hash
  */
-int mvl_hash_indices(LIBMVL_OFFSET64 indices_count, const LIBMVL_OFFSET64 *indices, LIBMVL_OFFSET64 *hash, LIBMVL_OFFSET64 vec_count, LIBMVL_VECTOR **vec, void **vec_data)
+int mvl_hash_indices(LIBMVL_OFFSET64 indices_count, const LIBMVL_OFFSET64 *indices, LIBMVL_OFFSET64 *hash, LIBMVL_OFFSET64 vec_count, LIBMVL_VECTOR **vec, void **vec_data, int flags)
 {
 LIBMVL_OFFSET64 i, j, N;
 
-for(i=0;i<indices_count;i++) {
-	hash[i]=MVL_SEED_HASH_VALUE;
+if(flags & LIBMVL_INIT_HASH) {
+	for(i=0;i<indices_count;i++) {
+		hash[i]=MVL_SEED_HASH_VALUE;
+		}
 	}
 
 if(vec_count<1)return 0;
@@ -1823,8 +1828,110 @@ for(j=0;j<vec_count;j++) {
 			return(-1);
 		}
 	}
-for(i=0;i<indices_count;i++) {
-	hash[i]=mvl_randomize_bits64(hash[i]);
+	
+if(flags & LIBMVL_FINALIZE_HASH) {
+	for(i=0;i<indices_count;i++) {
+		hash[i]=mvl_randomize_bits64(hash[i]);
+		}
+	}
+	
+return 0;
+}
+
+/*! @brief This function is used to compute 64 bit hash of vector values
+ * array hash[] is passed in and contains the result of the computation
+ * 
+ * Integer indices are computed by value, so that 100 produces the same hash whether it is stored as INT32 or INT64.
+ * 
+ * Floats and doubles are trickier - we can guarantee that the hash of a float promoted to a double is the same as the hash of the original float, but not the reverse.
+ * 
+ * @param i0  starting index to hash 
+ * @param i1  first index to not hash
+ * @param hash a previously allocated array of length (i1-i0) that the computed hashes will be written into
+ * @param vec_count the number of LIBMVL_VECTORS considered as columns in a table
+ * @param vec an array of pointers to LIBMVL_VECTORS considered as columns in a table
+ * @param vec_data an array of pointers to memory mapped areas those LIBMVL_VECTORs derive from. This allows computing hash from vectors drawn from different MVL files
+ * @param flags flags specifying whether to initialize or finalize hash
+ */
+int mvl_hash_range(LIBMVL_OFFSET64 i0, LIBMVL_OFFSET64 i1, LIBMVL_OFFSET64 *hash, LIBMVL_OFFSET64 vec_count, LIBMVL_VECTOR **vec, void **vec_data, int flags)
+{
+LIBMVL_OFFSET64 i, j, N, indices_count;
+
+indices_count=i1-i0;
+
+if(flags & LIBMVL_INIT_HASH) {
+	for(i=0;i<indices_count;i++) {
+		hash[i]=MVL_SEED_HASH_VALUE;
+		}
+	}
+
+if(vec_count<1 || (i1<=i0))return 0;
+
+N=mvl_vector_length(vec[0]);
+//fprintf(stderr, "vec_count=%d N=%d\n", vec_count, N);
+if(mvl_vector_type(vec[0])==LIBMVL_PACKED_LIST64)N--;
+for(i=1;i<vec_count;i++) {
+	if(mvl_vector_type(vec[i])==LIBMVL_PACKED_LIST64) {
+		if(mvl_vector_length(vec[i])!=N+1)return -1;
+		if(vec_data==NULL)return -2;
+		if(vec_data[i]==NULL)return -3;
+		continue;
+		}
+	if(mvl_vector_length(vec[i])!=N)return -4;
+	}
+
+if(i0>=N || i1>=N)return(-5);
+
+for(j=0;j<vec_count;j++) {
+	switch(mvl_vector_type(vec[j])) {
+		case LIBMVL_VECTOR_CSTRING:
+		case LIBMVL_VECTOR_UINT8: 
+			for(i=0;i<indices_count;i++) {
+				hash[i]=mvl_accumulate_hash64(hash[i], (const char *)&(mvl_vector_data(vec[j]).i[i+i0]), 1);
+				}
+			break;
+		case LIBMVL_VECTOR_INT32:
+			for(i=0;i<indices_count;i++) {
+				hash[i]=mvl_accumulate_int32_hash64(hash[i], &(mvl_vector_data(vec[j]).i[i+i0]), 1);
+				}
+			break;
+		case LIBMVL_VECTOR_INT64:
+			for(i=0;i<indices_count;i++) {
+				hash[i]=mvl_accumulate_int64_hash64(hash[i], &(mvl_vector_data(vec[j]).i64[i+i0]), 1);
+				}
+			break;
+		case LIBMVL_VECTOR_FLOAT:
+			for(i=0;i<indices_count;i++) {
+				hash[i]=mvl_accumulate_float_hash64(hash[i], &(mvl_vector_data(vec[j]).f[i+i0]), 1);
+				}
+			break;
+		case LIBMVL_VECTOR_DOUBLE:
+			for(i=0;i<indices_count;i++) {
+				hash[i]=mvl_accumulate_double_hash64(hash[i], &(mvl_vector_data(vec[j]).d[i+i0]), 1);
+				}
+			break;
+		case LIBMVL_VECTOR_OFFSET64: /* TODO: we might want to do something more clever here */
+			for(i=0;i<indices_count;i++) {
+				hash[i]=mvl_accumulate_hash64(hash[i], (const char *)&(mvl_vector_data(vec[j]).i64[i+i0]), 8);
+				}
+			break;
+		case LIBMVL_PACKED_LIST64: {
+			if(vec_data==NULL)return -6;
+			if(vec_data[j]==NULL)return -7;
+			for(i=0;i<indices_count;i++) {
+				hash[i]=mvl_accumulate_hash64(hash[i], mvl_packed_list_get_entry(vec[j], vec_data[j], i+i0), mvl_packed_list_get_entry_bytelength(vec[j], i+i0));
+				}
+			break;
+			}
+		default:
+			return(-1);
+		}
+	}
+	
+if(flags & LIBMVL_FINALIZE_HASH) {
+	for(i=0;i<indices_count;i++) {
+		hash[i]=mvl_randomize_bits64(hash[i]);
+		}
 	}
 	
 return 0;
@@ -1868,6 +1975,8 @@ hm->hash_map=do_malloc(hm->hash_map_size, sizeof(*hm->hash_map));
 hm->first=do_malloc(hm->hash_size, sizeof(*hm->first));
 hm->next=do_malloc(hm->hash_size, sizeof(*hm->next));
 
+hm->vec_count=0;
+
 hm->flags=MVL_FLAG_OWN_HASH | MVL_FLAG_OWN_HASH_MAP | MVL_FLAG_OWN_FIRST | MVL_FLAG_OWN_NEXT;
 
 return(hm);
@@ -1882,9 +1991,11 @@ if(hash_map->flags & MVL_FLAG_OWN_HASH)free(hash_map->hash);
 if(hash_map->flags & MVL_FLAG_OWN_HASH_MAP)free(hash_map->hash_map);
 if(hash_map->flags & MVL_FLAG_OWN_FIRST)free(hash_map->first);
 if(hash_map->flags & MVL_FLAG_OWN_NEXT)free(hash_map->next);
+if(hash_map->flags & MVL_FLAG_OWN_VEC_TYPES)free(hash_map->vec_types);
 
 hash_map->hash_size=0;
 hash_map->hash_map_size=0;
+hash_map->vec_count=0;
 free(hash_map);
 }
 
@@ -2199,6 +2310,363 @@ for(i=0;i<first_count;i++) {
 	
 	}
 hm->first_count=group_count;
+}
+
+
+/*! @brief Increase storage of previously allocated partition
+ * 
+ *  @param el Partition structure
+ *  @param nelem Make sure it can contain at least that many elements
+ */
+void mvl_extend_partition(LIBMVL_PARTITION *el, LIBMVL_OFFSET64 nelem)
+{
+LIBMVL_OFFSET64 *p, new_size;
+new_size=2*el->size+nelem;
+
+p=do_malloc(new_size, sizeof(*p));
+if(el->count>0)	memcpy(p, el->offset, el->count*sizeof(*p));
+if(el->size>0)free(el->offset);
+el->offset=p;
+el->size=new_size;
+}
+
+/*! @brief Compute list of extents describing stretches of data with identical values
+ *  @param el pointer to previously allocated LIBMVL_PARTITION structure
+ *  @param count Number of vectors in \code{vec}
+ *  @param vec Array of vectors with identical number of elements
+ *  @param data Mapped data areas (needed to compare strings)
+ */
+void mvl_find_repeats(LIBMVL_PARTITION *el, LIBMVL_OFFSET64 count, LIBMVL_VECTOR **vec, void **data)
+{
+LIBMVL_OFFSET64 N;
+MVL_SORT_INFO info;
+MVL_SORT_UNIT a, b;
+
+if(count<1)return;
+
+if(el->count>=el->size)
+	mvl_extend_partition(el, 1024);
+
+N=mvl_vector_length(vec[0]);
+if(mvl_vector_type(vec[0])==LIBMVL_PACKED_LIST64)N--;
+
+for(LIBMVL_OFFSET64 i=1;i<count;i++) {
+	if(mvl_vector_type(vec[i])==LIBMVL_PACKED_LIST64) {
+		if(mvl_vector_length(vec[i])!=N+1) {
+			return;
+			}
+		} else {
+		if(mvl_vector_length(vec[i])!=N) {
+			return;
+			}
+		}
+	}
+
+info.vec=vec;
+info.data=data;
+info.nvec=count;
+
+a.info=&info;
+a.index=0;
+b.info=&info;
+
+for(LIBMVL_OFFSET64 i=1; i<N;i++) {
+	b.index=i;
+	if(mvl_equals(&a, &b))continue;
+	
+	if(el->count>=el->size)mvl_extend_partition(el, 0);
+	
+	el->offset[el->count]=a.index;
+	el->count++;
+	a.index=i;
+	}
+	
+if(el->count+1>=el->size)mvl_extend_partition(el, 0);
+el->offset[el->count]=a.index;
+el->count++;
+el->offset[el->count]=N;
+el->count++;
+}
+
+/*! @brief Initialize freshly allocated partition structure.
+ *  @param el a pointer to LIBMVL_PARTITION structure
+ */
+void mvl_init_partitiion(LIBMVL_PARTITION *el)
+{
+memset(el, 0, sizeof(*el));
+}
+
+/*! @brief free arrays of previously allocated partition. 
+ *   This function does not free the structure itself.
+ *  @param el a pointer to LIBMVL_PARTITION structure
+ */
+void mvl_free_partition_arrays(LIBMVL_PARTITION *el)
+{
+if(el->size>0) {
+	free(el->offset);
+	}
+el->offset=NULL;
+el->size=0;
+}
+
+/*! @brief Initialize freshly allocated partition structure.
+ *  @param el a pointer to LIBMVL_PARTITION structure
+ */
+void mvl_init_extent_list(LIBMVL_EXTENT_LIST *el)
+{
+memset(el, 0, sizeof(*el));
+el->size=LIBMVL_EXTENT_INLINE_SIZE;
+el->start=el->start_inline;
+el->stop=el->stop_inline;
+}
+
+/*! @brief free arrays of previously allocated partition. 
+ *   This function does not free the structure itself.
+ *  @param el a pointer to LIBMVL_PARTITION structure
+ */
+void mvl_free_extent_list_arrays(LIBMVL_EXTENT_LIST *el)
+{
+if(el->size>LIBMVL_EXTENT_INLINE_SIZE) {
+	free(el->start);
+	free(el->stop);
+	}
+el->start=NULL;
+el->stop=NULL;
+el->size=0;
+}
+
+/*! @brief Increase storage of previously allocated extent list
+ * 
+ *  @param el extent list structure
+ *  @param nelem Make sure it can contain at least that many elements
+ */
+void mvl_extend_extent_list(LIBMVL_EXTENT_LIST *el, LIBMVL_OFFSET64 nelem)
+{
+LIBMVL_OFFSET64 *p;
+LIBMVL_OFFSET64 new_size;
+
+new_size=2*el->size+nelem;
+
+p=do_malloc(new_size, sizeof(*p));
+if(el->count>0)	memcpy(p, el->start, el->count*sizeof(*p));
+if(el->size>LIBMVL_EXTENT_INLINE_SIZE) {
+	free(el->start);
+	}
+el->start=p;
+
+p=do_malloc(new_size, sizeof(*p));
+if(el->count>0)	memcpy(p, el->stop, el->count*sizeof(*p));
+if(el->size>LIBMVL_EXTENT_INLINE_SIZE) {
+	free(el->stop);
+	}
+el->stop=p;
+
+el->size=new_size;
+}
+
+
+/*! @brief Initialize freshly allocated extent list  structure.
+ *  @param ei a pointer to LIBMVL_EXTENT_INDEX structure
+ */
+void mvl_init_extent_index(LIBMVL_EXTENT_INDEX *ei)
+{
+memset(ei, 0, sizeof(*ei));
+mvl_init_partitiion(&(ei->partition));
+}
+
+/*! @brief free arrays of previously allocated extent list. 
+ *   This function does not free the structure itself.
+ *  @param ei a pointer to LIBMVL_EXTENT_INDEX structure
+ */
+void mvl_free_extent_index_arrays(LIBMVL_EXTENT_INDEX *ei)
+{
+mvl_free_partition_arrays(&(ei->partition));
+
+if(ei->hash_map.flags & MVL_FLAG_OWN_FIRST)
+	free(ei->hash_map.first);
+
+if(ei->hash_map.flags & MVL_FLAG_OWN_HASH)
+	free(ei->hash_map.hash);
+
+if(ei->hash_map.flags & MVL_FLAG_OWN_NEXT)
+	free(ei->hash_map.next);
+
+if(ei->hash_map.flags & MVL_FLAG_OWN_HASH_MAP)
+	free(ei->hash_map.hash_map);
+
+if(ei->hash_map.flags & MVL_FLAG_OWN_VEC_TYPES)
+	free(ei->hash_map.vec_types);
+
+ei->hash_map.flags=0;
+ei->hash_map.hash_size=0;
+ei->hash_map.hash_map_size=0;
+ei->hash_map.vec_count=0;
+}
+
+
+/*! @brief Compute an extent index.
+ * 
+ *  @param count the number of LIBMVL_VECTORS considered as columns in a table
+ *  @param vec an array of pointers to LIBMVL_VECTORS considered as columns in a table
+ *  @param vec_data an array of pointers to memory mapped areas those LIBMVL_VECTORs derive from. This allows computing hash from vectors drawn from different MVL 
+ *  @return an integer error code, or 0 on success
+ */
+int mvl_compute_extent_index(LIBMVL_EXTENT_INDEX *ei, LIBMVL_OFFSET64 count, LIBMVL_VECTOR **vec, void **data)
+{
+int err;
+ei->partition.count=0;
+mvl_find_repeats(&(ei->partition), count, vec, data);
+
+ei->hash_map.hash_count=ei->partition.count-1;
+
+if(ei->hash_map.hash_size<ei->hash_map.hash_count || 
+	((ei->hash_map.flags  & (MVL_FLAG_OWN_HASH | MVL_FLAG_OWN_FIRST | MVL_FLAG_OWN_NEXT))!=(MVL_FLAG_OWN_HASH | MVL_FLAG_OWN_FIRST | MVL_FLAG_OWN_NEXT))) {
+	if(ei->hash_map.flags & MVL_FLAG_OWN_HASH)
+		free(ei->hash_map.hash);
+	if(ei->hash_map.flags & MVL_FLAG_OWN_FIRST)
+		free(ei->hash_map.first);
+	if(ei->hash_map.flags & MVL_FLAG_OWN_NEXT)
+		free(ei->hash_map.next);
+	
+	ei->hash_map.flags|=MVL_FLAG_OWN_HASH | MVL_FLAG_OWN_FIRST | MVL_FLAG_OWN_NEXT;
+	ei->hash_map.hash_size=ei->hash_map.hash_count;
+	ei->hash_map.hash=do_malloc(ei->hash_map.hash_size, sizeof(*ei->hash_map.hash));
+	ei->hash_map.first=do_malloc(ei->hash_map.hash_size, sizeof(*ei->hash_map.first));
+	ei->hash_map.next=do_malloc(ei->hash_map.hash_size, sizeof(*ei->hash_map.next));
+	}
+if(ei->hash_map.hash_map_size<ei->hash_map.hash_count || !(ei->hash_map.flags & MVL_FLAG_OWN_HASH_MAP)) {
+	if(ei->hash_map.flags & MVL_FLAG_OWN_HASH_MAP) {
+		free(ei->hash_map.hash_map);
+		}
+	ei->hash_map.flags|=MVL_FLAG_OWN_HASH_MAP;
+	ei->hash_map.hash_map_size=mvl_compute_hash_map_size(ei->hash_map.hash_count);
+	ei->hash_map.hash_map=do_malloc(ei->hash_map.hash_map_size, sizeof(*ei->hash_map.hash_map));
+	}
+
+if((err=mvl_hash_indices(ei->hash_map.hash_count, ei->partition.offset, ei->hash_map.hash, count, vec, data, LIBMVL_COMPLETE_HASH))!=0)return(err);
+   
+if(ei->hash_map.flags & MVL_FLAG_OWN_VEC_TYPES)
+	free(ei->hash_map.vec_types);
+
+ei->hash_map.flags|=MVL_FLAG_OWN_VEC_TYPES;
+ei->hash_map.vec_count=count;
+ei->hash_map.vec_types=do_malloc(count, sizeof(*ei->hash_map.vec_types));
+
+for(LIBMVL_OFFSET64 i=0;i<count;i++)ei->hash_map.vec_types[i]=mvl_vector_type(vec[i]);
+
+mvl_compute_hash_map(&(ei->hash_map));
+return(0);
+}
+
+/*! @brief Write extent index to MVL file 
+ * 
+ */
+LIBMVL_OFFSET64 mvl_write_extent_index(LIBMVL_CONTEXT *ctx, LIBMVL_EXTENT_INDEX *ei)
+{
+LIBMVL_NAMED_LIST *L;
+LIBMVL_OFFSET64 offset;
+L=mvl_create_named_list(5);
+
+mvl_add_list_entry(L, -1, "partition", mvl_write_vector(ctx, LIBMVL_VECTOR_OFFSET64, ei->partition.count, ei->partition.offset, LIBMVL_NO_METADATA));
+mvl_add_list_entry(L, -1, "hash", mvl_write_vector(ctx, LIBMVL_VECTOR_OFFSET64, ei->hash_map.hash_count, ei->hash_map.hash, LIBMVL_NO_METADATA));
+//mvl_add_list_entry(L, -1, "first", mvl_write_vector(ctx, LIBMVL_VECTOR_OFFSET64, ei->hash_map.first_count, ei->hash_map.first, LIBMVL_NO_METADATA));
+mvl_add_list_entry(L, -1, "next", mvl_write_vector(ctx, LIBMVL_VECTOR_OFFSET64, ei->hash_map.hash_count, ei->hash_map.next, LIBMVL_NO_METADATA));
+mvl_add_list_entry(L, -1, "hash_map", mvl_write_vector(ctx, LIBMVL_VECTOR_OFFSET64, ei->hash_map.hash_map_size, ei->hash_map.hash_map, LIBMVL_NO_METADATA));
+mvl_add_list_entry(L, -1, "vec_types", mvl_write_vector(ctx, LIBMVL_VECTOR_INT32, ei->hash_map.vec_count, ei->hash_map.vec_types, LIBMVL_NO_METADATA));
+offset=mvl_write_named_list(ctx, L);
+mvl_free_named_list(L);
+return(offset);
+}
+
+/*!  @brief Load extent index from memory mapped MVL file
+ */
+int mvl_load_extent_index(LIBMVL_CONTEXT *ctx, void *data, LIBMVL_OFFSET64 offset, LIBMVL_EXTENT_INDEX *ei)
+{
+LIBMVL_NAMED_LIST *L;
+LIBMVL_VECTOR *vec;
+L=mvl_read_named_list(ctx, data, offset);
+
+mvl_free_extent_index_arrays(ei);
+ei->partition.count=0;
+ei->hash_map.hash_count=0;
+ei->hash_map.first_count=0;
+
+if(L==NULL) {
+	ei->partition.count=0;
+	ei->hash_map.hash_count=0;
+	ei->hash_map.first_count=0;
+	return(LIBMVL_ERR_INVALID_EXTENT_INDEX);
+	}
+	
+vec=mvl_vector_from_offset(data, mvl_find_list_entry(L, -1, "partition"));
+if(vec==NULL) {
+	ei->partition.count=0;
+	ei->hash_map.hash_count=0;
+	ei->hash_map.first_count=0;
+	return(LIBMVL_ERR_INVALID_EXTENT_INDEX);
+	}
+
+ei->partition.size=0;
+ei->partition.offset=mvl_vector_data_offset(vec);
+ei->partition.count=mvl_vector_length(vec);
+
+vec=mvl_vector_from_offset(data, mvl_find_list_entry(L, -1, "hash"));
+if(vec==NULL) {
+	ei->partition.count=0;
+	ei->hash_map.hash_count=0;
+	ei->hash_map.first_count=0;
+	return(LIBMVL_ERR_INVALID_EXTENT_INDEX);
+	}
+ei->hash_map.hash_size=0;
+ei->hash_map.hash_count=mvl_vector_length(vec);
+ei->hash_map.hash=mvl_vector_data_offset(vec);
+
+#if 0
+vec=mvl_vector_from_offset(data, mvl_find_list_entry(L, -1, "first"));
+if(vec==NULL) {
+	ei->partition.count=0;
+	ei->hash_map.hash_count=0;
+	ei->hash_map.first_count=0;
+	return(LIBMVL_ERR_INVALID_EXTENT_INDEX);
+	}
+ei->hash_map.first=mvl_vector_data_offset(vec);
+ei->hash_map.first_count=mvl_vector_length(vec);
+#else
+ei->hash_map.first=NULL;
+ei->hash_map.first_count=0;
+#endif
+
+vec=mvl_vector_from_offset(data, mvl_find_list_entry(L, -1, "next"));
+if(vec==NULL || mvl_vector_length(vec)!=ei->hash_map.hash_count) {
+	ei->partition.count=0;
+	ei->hash_map.hash_count=0;
+	ei->hash_map.first_count=0;
+	return(LIBMVL_ERR_INVALID_EXTENT_INDEX);
+	}
+ei->hash_map.next=mvl_vector_data_offset(vec);
+
+vec=mvl_vector_from_offset(data, mvl_find_list_entry(L, -1, "hash_map"));
+if(vec==NULL) {
+	ei->partition.count=0;
+	ei->hash_map.hash_count=0;
+	ei->hash_map.first_count=0;
+	return(LIBMVL_ERR_INVALID_EXTENT_INDEX);
+	}
+ei->hash_map.hash_map_size=mvl_vector_length(vec);
+ei->hash_map.hash_map=mvl_vector_data_offset(vec);
+
+vec=mvl_vector_from_offset(data, mvl_find_list_entry(L, -1, "vec_types"));
+if(vec==NULL) {
+	ei->partition.count=0;
+	ei->hash_map.hash_count=0;
+	ei->hash_map.first_count=0;
+	return(LIBMVL_ERR_INVALID_EXTENT_INDEX);
+	}
+ei->hash_map.vec_count=mvl_vector_length(vec);
+ei->hash_map.vec_types=mvl_vector_data_int32(vec);
+mvl_free_named_list(L);
+
+return(0);
 }
 
 /*! @brief Compute vector statistics, such as a bounding box
