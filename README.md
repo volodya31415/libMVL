@@ -201,6 +201,9 @@ rows are compared for equality. The comparison is done by value, so it does not 
 
 * mvl_find_groups() transforms a previously computed hash map into a set of groups of identical rows.
 
+* mvl_compute_extent_index() computes a hash based index that is particularly efficient when keys have many repeated values. Also see mvl_init_extent_index(),
+mvl_free_extent_index_arrays(), mvl_write_extent_index(), mvl_load_extent_index(), mvl_empty_extent_list() and mvl_get_extents()
+
 * mvl_normalize_vector() computes statistics useful for construction of spatial indices
 
 

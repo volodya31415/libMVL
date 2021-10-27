@@ -465,7 +465,7 @@ return(0);
 
 /*! @brief A convenience function to convert an offset into memory mapped data into a pointer to LIBMVL_VECTOR structure.
  * 
- *  It assumes that the offset is valid, to validate it see \code{mvl_validate_vector()}
+ *  It assumes that the offset is valid, to validate it see mvl_validate_vector()
  * 
  *  @param data  pointer to memory mapped MVL file
  *  @param offset 64-bit offset into MVL file
@@ -703,6 +703,7 @@ int mvl_sort_indices(LIBMVL_OFFSET64 indices_count, LIBMVL_OFFSET64 *indices, LI
 
 /* This randomizes bits of 64-bit numbers. */
 /*! @brief Randomize bits of 64-bit numbers, typically after accumulating a hash value
+ * 
  *  @param x input value
  *  @return Randomized value
  */
@@ -1091,7 +1092,8 @@ LIBMVL_OFFSET64 mvl_write_extent_index(LIBMVL_CONTEXT *ctx, LIBMVL_EXTENT_INDEX 
 int mvl_load_extent_index(LIBMVL_CONTEXT *ctx, void *data, LIBMVL_OFFSET64 offset, LIBMVL_EXTENT_INDEX *ei);
 
 /*! @brief Alter extent list to contain no extents without freeing memory
- *  @param el pointer to extern list structure to add extents to
+ * 
+ *  @param el pointer to extent list structure to empty
  */
 static inline void mvl_empty_extent_list(LIBMVL_EXTENT_LIST *el)
 {
@@ -1100,9 +1102,10 @@ el->count=0;
 
 
 /*! @brief Find extents in index corresponding to a given hash
+ * 
  *  @param ei pointer to populated extent index structure
  *  @param hash 64-bit hash value to query
- *  @param el pointer to extern list structure to add extents to
+ *  @param el pointer to extent list structure to add extents to
  */
 static inline void mvl_get_extents(LIBMVL_EXTENT_INDEX *ei, LIBMVL_OFFSET64 hash, LIBMVL_EXTENT_LIST *el)
 {

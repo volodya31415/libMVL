@@ -109,6 +109,7 @@ return(0);
 }
 
 /*!  @brief Create MVL context 
+ * 
  *   @return A pointer to allocated LIBMVL_CONTEXT structure
  */
 LIBMVL_CONTEXT *mvl_create_context(void)
@@ -2332,7 +2333,7 @@ el->size=new_size;
 
 /*! @brief Compute list of extents describing stretches of data with identical values
  *  @param el pointer to previously allocated LIBMVL_PARTITION structure
- *  @param count Number of vectors in \code{vec}
+ *  @param count Number of vectors in vec
  *  @param vec Array of vectors with identical number of elements
  *  @param data Mapped data areas (needed to compare strings)
  */
@@ -2506,9 +2507,10 @@ ei->hash_map.vec_count=0;
 
 /*! @brief Compute an extent index.
  * 
+ *  @param ei a pointer to extent index structure
  *  @param count the number of LIBMVL_VECTORS considered as columns in a table
  *  @param vec an array of pointers to LIBMVL_VECTORS considered as columns in a table
- *  @param vec_data an array of pointers to memory mapped areas those LIBMVL_VECTORs derive from. This allows computing hash from vectors drawn from different MVL 
+ *  @param data an array of pointers to memory mapped areas those LIBMVL_VECTORs derive from. This allows computing hash from vectors drawn from different MVL 
  *  @return an integer error code, or 0 on success
  */
 int mvl_compute_extent_index(LIBMVL_EXTENT_INDEX *ei, LIBMVL_OFFSET64 count, LIBMVL_VECTOR **vec, void **data)
