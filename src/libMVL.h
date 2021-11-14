@@ -122,21 +122,24 @@ typedef struct {
 	} LIBMVL_VECTOR_HEADER;
 	
 #ifndef MVL_STATIC_MEMBERS
-#ifdef __SANITIZE_ADDRESS__
-#define MVL_STATIC_MEMBERS 0
-#warning "Address sanitizer active, using C11 definition of LIBMVL_VECTOR"
-#else
-#ifdef __clang__
-#if __has_feature(address_sanitizer)
-#define MVL_STATIC_MEMBERS 0
-#warning "Address sanitizer active, using C11 definition of LIBMVL_VECTOR"
-#else
+	
+// #ifdef __SANITIZE_ADDRESS__
+// #define MVL_STATIC_MEMBERS 0
+// #warning "Address sanitizer active, using C11 definition of LIBMVL_VECTOR"
+// #else
+// #ifdef __clang__
+// #if __has_feature(address_sanitizer)
+// #define MVL_STATIC_MEMBERS 0
+// #warning "Address sanitizer active, using C11 definition of LIBMVL_VECTOR"
+// #else
+// #define MVL_STATIC_MEMBERS 1
+// #endif
+// #else
+// #define MVL_STATIC_MEMBERS 1
+// #endif
+// #endif	
+
 #define MVL_STATIC_MEMBERS 1
-#endif
-#else
-#define MVL_STATIC_MEMBERS 1
-#endif
-#endif	
 #endif
 	
 #if MVL_STATIC_MEMBERS
@@ -446,7 +449,7 @@ if(mvl_vector_type(vec)==LIBMVL_PACKED_LIST64) {
 	/* We check the first and last pointer of the packed list, as checking all the entries is inefficient
 	 * A valid packed list will have all entries in increasing order, which is easy to check at the point of use
 	 */
-	LIBMVL_OFFSET64 offset2=mvl_vector_data(vec).offset[0];
+	LIBMVL_OFFSET64 offset2=mvl_vector_data_offset(vec)[0];
 	LIBMVL_VECTOR *vec2;
 	if(offset2 < sizeof(LIBMVL_VECTOR_HEADER) || offset2>data_size)return(LIBMVL_ERR_INVALID_OFFSET);
 
@@ -455,7 +458,7 @@ if(mvl_vector_type(vec)==LIBMVL_PACKED_LIST64) {
 	if(mvl_vector_type(vec2)!=LIBMVL_VECTOR_UINT8)return(LIBMVL_ERR_UNKNOWN_TYPE);
 	if(offset2+mvl_vector_length(vec2)>data_size)return(LIBMVL_ERR_INVALID_LENGTH);
 	
-	if(mvl_vector_data(vec).offset[mvl_vector_length(vec)-1]>offset2+mvl_vector_length(vec2))return(LIBMVL_ERR_INVALID_OFFSET);
+	if(mvl_vector_data_offset(vec)[mvl_vector_length(vec)-1]>offset2+mvl_vector_length(vec2))return(LIBMVL_ERR_INVALID_OFFSET);
 	
 	return(0);
 	}
@@ -497,13 +500,13 @@ if((idx<0) || (idx>=mvl_vector_length(vec)))return(NAN);
 
 switch(mvl_vector_type(vec)) {
 	case LIBMVL_VECTOR_DOUBLE:
-		return(mvl_vector_data(vec).d[idx]);
+		return(mvl_vector_data_double(vec)[idx]);
 	case LIBMVL_VECTOR_FLOAT:
-		return(mvl_vector_data(vec).f[idx]);
+		return(mvl_vector_data_float(vec)[idx]);
 	case LIBMVL_VECTOR_INT64:
-		return(mvl_vector_data(vec).i64[idx]);
+		return(mvl_vector_data_int64(vec)[idx]);
 	case LIBMVL_VECTOR_INT32:
-		return(mvl_vector_data(vec).i[idx]);
+		return(mvl_vector_data_int32(vec)[idx]);
 	default:
 		return(NAN);
 	}
@@ -524,13 +527,13 @@ if((idx<0) || (idx>=mvl_vector_length(vec)))return(def);
 
 switch(mvl_vector_type(vec)) {
 	case LIBMVL_VECTOR_DOUBLE:
-		return(mvl_vector_data(vec).d[idx]);
+		return(mvl_vector_data_double(vec)[idx]);
 	case LIBMVL_VECTOR_FLOAT:
-		return(mvl_vector_data(vec).f[idx]);
+		return(mvl_vector_data_float(vec)[idx]);
 	case LIBMVL_VECTOR_INT64:
-		return(mvl_vector_data(vec).i64[idx]);
+		return(mvl_vector_data_int64(vec)[idx]);
 	case LIBMVL_VECTOR_INT32:
-		return(mvl_vector_data(vec).i[idx]);
+		return(mvl_vector_data_int32(vec)[idx]);
 	default:
 		return(def);
 	}
@@ -551,7 +554,7 @@ if((idx<0) || (idx>=mvl_vector_length(vec)))return(0);
 
 switch(mvl_vector_type(vec)) {
 	case LIBMVL_VECTOR_OFFSET64:
-		return(mvl_vector_data(vec).offset[idx]);
+		return(mvl_vector_data_offset(vec)[idx]);
 	default:
 		return(0);
 	}
@@ -638,8 +641,8 @@ LIBMVL_OFFSET64 start, stop, len;
 if(mvl_vector_type(vec)!=LIBMVL_PACKED_LIST64)return -1;
 len=mvl_vector_length(vec);
 if((idx+1>=len) || (idx<0))return -1;
-start=mvl_vector_data(vec).offset[idx];
-stop=mvl_vector_data(vec).offset[idx+1];
+start=mvl_vector_data_offset(vec)[idx];
+stop=mvl_vector_data_offset(vec)[idx+1];
 return(stop-start);
 }
 
@@ -656,7 +659,7 @@ LIBMVL_OFFSET64 start, len;
 if(mvl_vector_type(vec)!=LIBMVL_PACKED_LIST64)return NULL;
 len=mvl_vector_length(vec);
 if((idx+1>=len) || (idx<0))return NULL;
-start=mvl_vector_data(vec).offset[idx];
+start=mvl_vector_data_offset(vec)[idx];
 return(&(((const char *)(data))[start]));
 }
 
