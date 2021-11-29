@@ -1078,6 +1078,28 @@ mvl_free_named_list(metadata);
 return(list_offset);
 }
 
+/*! @brief Write out named list. In R, this would be read back as list with class attribute set to "cl"
+ *   @param ctx MVL context pointer that has been initialized for writing
+ *   @param L previously created named list
+ *   @param cl character string describing list class
+ *   @return an offset into the file, suitable for adding to MVL file directory, or to other MVL objects
+ */
+LIBMVL_OFFSET64 mvl_write_named_list2(LIBMVL_CONTEXT *ctx, LIBMVL_NAMED_LIST *L, char *cl)
+{
+LIBMVL_OFFSET64 list_offset;
+LIBMVL_NAMED_LIST *metadata;
+	
+metadata=mvl_create_R_attributes_list(ctx, cl);
+//mvl_add_list_entry(metadata, -1, "names", mvl_write_vector(ctx, LIBMVL_VECTOR_OFFSET64, L->free, offsets, LIBMVL_NO_METADATA));
+mvl_add_list_entry(metadata, -1, "names", mvl_write_packed_list(ctx, L->free, L->tag_length, L->tag, LIBMVL_NO_METADATA));
+
+list_offset=mvl_write_vector(ctx, LIBMVL_VECTOR_OFFSET64, L->free, L->offset, mvl_write_attributes_list(ctx, metadata));
+
+mvl_free_named_list(metadata);
+
+return(list_offset);
+}
+
 /*! @brief Write out named list in the style of R data frames. It is assumed that all entries of L are vectors with the same number of elements.
  *   @param ctx MVL context pointer that has been initialized for writing
  *   @param L previously created named list
@@ -2569,13 +2591,15 @@ LIBMVL_NAMED_LIST *L;
 LIBMVL_OFFSET64 offset;
 L=mvl_create_named_list(5);
 
+mvl_add_list_entry(L, -1, "index_type", MVL_WVEC(ctx, LIBMVL_VECTOR_INT32, MVL_EXTENT_INDEX));
+
 mvl_add_list_entry(L, -1, "partition", mvl_write_vector(ctx, LIBMVL_VECTOR_OFFSET64, ei->partition.count, ei->partition.offset, LIBMVL_NO_METADATA));
 mvl_add_list_entry(L, -1, "hash", mvl_write_vector(ctx, LIBMVL_VECTOR_OFFSET64, ei->hash_map.hash_count, ei->hash_map.hash, LIBMVL_NO_METADATA));
 //mvl_add_list_entry(L, -1, "first", mvl_write_vector(ctx, LIBMVL_VECTOR_OFFSET64, ei->hash_map.first_count, ei->hash_map.first, LIBMVL_NO_METADATA));
 mvl_add_list_entry(L, -1, "next", mvl_write_vector(ctx, LIBMVL_VECTOR_OFFSET64, ei->hash_map.hash_count, ei->hash_map.next, LIBMVL_NO_METADATA));
 mvl_add_list_entry(L, -1, "hash_map", mvl_write_vector(ctx, LIBMVL_VECTOR_OFFSET64, ei->hash_map.hash_map_size, ei->hash_map.hash_map, LIBMVL_NO_METADATA));
 mvl_add_list_entry(L, -1, "vec_types", mvl_write_vector(ctx, LIBMVL_VECTOR_INT32, ei->hash_map.vec_count, ei->hash_map.vec_types, LIBMVL_NO_METADATA));
-offset=mvl_write_named_list(ctx, L);
+offset=mvl_write_named_list2(ctx, L, "MVL_INDEX");
 mvl_free_named_list(L);
 return(offset);
 }

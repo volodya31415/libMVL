@@ -354,6 +354,7 @@ LIBMVL_OFFSET64 mvl_get_character_class_offset(LIBMVL_CONTEXT *ctx);
 
 /* This function writes contents of named list and creates R-compatible metadata with entry names */
 LIBMVL_OFFSET64 mvl_write_named_list(LIBMVL_CONTEXT *ctx, LIBMVL_NAMED_LIST *L);
+LIBMVL_OFFSET64 mvl_write_named_list2(LIBMVL_CONTEXT *ctx, LIBMVL_NAMED_LIST *L, char *cl);
 
 /* This convenience function writes named list of vectors as R-compatible data frame. 
  * A well formatted data frame would have vectors of the same length specified as nrows
@@ -1145,6 +1146,13 @@ typedef struct {
 void mvl_compute_vec_stats(const LIBMVL_VECTOR *vec, LIBMVL_VEC_STATS *stats);
 /* i0 and i1 denote the range of values to normalize. This allows to process vector one buffer at a time */
 void mvl_normalize_vector(const LIBMVL_VECTOR *vec, const LIBMVL_VEC_STATS *stats, LIBMVL_OFFSET64 i0, LIBMVL_OFFSET64 i1, double *out);
+
+/*! @brief Index types
+ * 
+ */
+#define MVL_EXTENT_INDEX	1
+#define MVL_SPATIAL_INDEX1	2
+
 
 #ifdef __cplusplus
 }
