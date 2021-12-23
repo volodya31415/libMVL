@@ -66,6 +66,7 @@ extern "C" {
 #define LIBMVL_VECTOR_POSTAMBLE2 1001		/* New format using named list */
 
 
+
 /*! @brief Return the element size in bytes for a particular MVL type
  *  @param type MVL type, such LIBMVL_VECTOR_FLOAT
  *  @return size in bytes
@@ -630,6 +631,40 @@ if(ofs==0)return(0);
 vec=(LIBMVL_VECTOR *)&(((char *)data)[ofs]);
 return(mvl_as_offset(vec, idx));
 }
+
+/*! @brief It is convenient to be able to mark strings as missing value, similar to NaN for floating point type. 
+ *  In MVL this is done with the special string of length 4 consisting of two NUL characters followed by letters "NA"
+ *
+ */
+
+#define MVL_NA_STRING "\000\000NA"
+#define MVL_NA_STRING_LENGTH	4
+
+static inline int mvl_string_is_na(const char *s, LIBMVL_OFFSET64 len)
+{
+if(len!=4)return 0;
+if((s[0]==0 && s[1]==0 && s[2]=='N' && s[3]=='A'))return 1;
+return(0);
+}
+
+/*! @brief Check whether packed list entry is a special string that indicates a missing value
+ * @param vec a pointer to LIBMVL_VECTOR  with type LIBMVL_PACKED_LIST64
+ * @param data a pointer to beginning of  memory mapped MVL file
+ * @param idx entry index
+ * @return 1 if the entry is NA - a missing value, 0 otherwise
+ */
+static inline int mvl_packed_list_is_na(const LIBMVL_VECTOR *vec, const void *data, LIBMVL_OFFSET64 idx)
+{
+LIBMVL_OFFSET64 start, stop, len;
+char *s;
+if(mvl_vector_type(vec)!=LIBMVL_PACKED_LIST64)return 1;
+len=mvl_vector_length(vec);
+if((idx+1>=len) || (idx<0))return 1;
+start=mvl_vector_data_offset(vec)[idx];
+stop=mvl_vector_data_offset(vec)[idx+1];
+return(mvl_string_is_na(&(((const char *)(data))[start]), stop-start));
+}
+
 
 /*! @brief Get length in bytes of string element idx from a packed list
  * @param vec a pointer to LIBMVL_VECTOR  with type LIBMVL_PACKED_LIST64
