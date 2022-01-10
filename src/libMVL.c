@@ -730,7 +730,7 @@ switch(type) {
  *   @param metadata an optional offset to previously written metadata. Specify LIBMVL_NO_METADATA if not needed
  *   @return an offset into the file, suitable for adding to MVL file directory, or to other MVL objects
  */
-LIBMVL_OFFSET64 mvl_write_packed_list(LIBMVL_CONTEXT *ctx, long count, const long *str_size,  char **str, LIBMVL_OFFSET64 metadata)
+LIBMVL_OFFSET64 mvl_write_packed_list(LIBMVL_CONTEXT *ctx, long count, const long *str_size,  unsigned char **str, LIBMVL_OFFSET64 metadata)
 {
 LIBMVL_OFFSET64 *ofsv, ofs1, ofs2, len1;
 long *str_size2;
@@ -741,7 +741,7 @@ str_size2=do_malloc(count, sizeof(*str_size2));
 len1=0;
 for(i=0;i<count;i++) {
 	if((str_size==NULL) || (str_size[i]<0)) {
-		str_size2[i]=strlen(str[i]);
+		str_size2[i]=strlen((char *)str[i]);
 		} else {
 		str_size2[i]=str_size[i];
 		}
@@ -974,11 +974,11 @@ L->free++;
 L->offset[k]=offset;
 if(tag_length<0)tag_length=strlen(tag);
 L->tag_length[k]=tag_length;
-L->tag[k]=memndup(tag, tag_length);
+L->tag[k]=(unsigned char*)memndup(tag, tag_length);
 
 if(L->hash_size>0) {
 	LIBMVL_OFFSET64 mask=L->hash_size-1;
-	LIBMVL_OFFSET64 h=mvl_accumulate_hash64(MVL_SEED_HASH_VALUE, tag, tag_length) & mask;
+	LIBMVL_OFFSET64 h=mvl_accumulate_hash64(MVL_SEED_HASH_VALUE, (const unsigned char*)tag, tag_length) & mask;
 	L->next_item[k]=L->first_item[h];
 	L->first_item[h]=k;	
 	}
@@ -1000,7 +1000,7 @@ if(tl<0)tl=strlen(tag);
 if(L->hash_size>0) {
 	/* Hash table present */
 	LIBMVL_OFFSET64 mask=L->hash_size-1;
-	LIBMVL_OFFSET64 h=mvl_accumulate_hash64(MVL_SEED_HASH_VALUE, tag, tl) & mask;
+	LIBMVL_OFFSET64 h=mvl_accumulate_hash64(MVL_SEED_HASH_VALUE, (const unsigned char*)tag, tl) & mask;
 	for(i=L->first_item[h]; i>=0; i=L->next_item[i]) {
 		if(L->tag_length[i]!=tl)continue;
 		if(!memcmp(L->tag[i], tag, tl)) {
@@ -1046,7 +1046,7 @@ long i;
 offsets=do_malloc(2*L->free, sizeof(*offsets));
 
 for(i=0;i<L->free;i++) {
-	offsets[i]=mvl_write_cached_string(ctx, L->tag_length[i], L->tag[i]);
+	offsets[i]=mvl_write_cached_string(ctx, L->tag_length[i], (const char *)L->tag[i]);
 	}
 memcpy(&(offsets[L->free]), L->offset, L->free*sizeof(*offsets));
 
@@ -1162,7 +1162,7 @@ L=mvl_create_named_list(nattr);
 for(i=0;i<nattr;i++) {
 	mvl_add_list_entry(L, 
 		mvl_vector_length(&(d[mvl_vector_data_offset(p)[i]])), 
-		mvl_vector_data_uint8(&(d[mvl_vector_data_offset(p)[i]])), 
+		(const char *)mvl_vector_data_uint8(&(d[mvl_vector_data_offset(p)[i]])), 
 		mvl_vector_data_offset(p)[i+nattr]);
 	}
 
@@ -1211,7 +1211,7 @@ switch(mvl_vector_type(&(d[names_ofs]))) {
 			}
 		for(i=0;i<nelem;i++) {
 			tag_ofs=mvl_vector_data_offset(&(d[names_ofs]))[i];
-			mvl_add_list_entry(L, mvl_vector_length(&(d[tag_ofs])), mvl_vector_data_uint8(&(d[tag_ofs])), mvl_vector_data_offset(&(d[offset]))[i]);
+			mvl_add_list_entry(L, mvl_vector_length(&(d[tag_ofs])), (const char *)mvl_vector_data_uint8(&(d[tag_ofs])), mvl_vector_data_offset(&(d[offset]))[i]);
 			}
 		break;
 	case LIBMVL_PACKED_LIST64:
@@ -1222,7 +1222,7 @@ switch(mvl_vector_type(&(d[names_ofs]))) {
 			return(NULL);
 			}
 		for(i=0;i<nelem;i++) {
-			mvl_add_list_entry(L, mvl_packed_list_get_entry_bytelength((LIBMVL_VECTOR *)&(d[names_ofs]), i), mvl_packed_list_get_entry((LIBMVL_VECTOR *)&(d[names_ofs]), d, i), mvl_vector_data_offset(&(d[offset]))[i]);
+			mvl_add_list_entry(L, mvl_packed_list_get_entry_bytelength((LIBMVL_VECTOR *)&(d[names_ofs]), i), (const char *)mvl_packed_list_get_entry((LIBMVL_VECTOR *)&(d[names_ofs]), d, i), mvl_vector_data_offset(&(d[offset]))[i]);
 			}
 		break;
 	default:
@@ -1357,7 +1357,7 @@ switch(pa->type) {
 		for(i=0;i<k;i++) {
 			a=(LIBMVL_VECTOR *)&(((unsigned char *)data)[mvl_vector_data_offset(dir)[i]]);
 			
-			mvl_add_list_entry(ctx->directory, a->header.length, mvl_vector_data_uint8(a), mvl_vector_data_offset(dir)[i+k]); 
+			mvl_add_list_entry(ctx->directory, a->header.length, (const char *)mvl_vector_data_uint8(a), mvl_vector_data_offset(dir)[i+k]); 
 			}
 		mvl_recompute_named_list_hash(ctx->directory);
 		break;
@@ -1811,7 +1811,7 @@ for(j=0;j<vec_count;j++) {
 		case LIBMVL_VECTOR_CSTRING:
 		case LIBMVL_VECTOR_UINT8: 
 			for(i=0;i<indices_count;i++) {
-				hash[i]=mvl_accumulate_hash64(hash[i], (const char *)&(mvl_vector_data_uint8(vec[j])[indices[i]]), 1);
+				hash[i]=mvl_accumulate_hash64(hash[i], (const unsigned char *)&(mvl_vector_data_uint8(vec[j])[indices[i]]), 1);
 				}
 			break;
 		case LIBMVL_VECTOR_INT32:
@@ -1836,7 +1836,7 @@ for(j=0;j<vec_count;j++) {
 			break;
 		case LIBMVL_VECTOR_OFFSET64: /* TODO: we might want to do something more clever here */
 			for(i=0;i<indices_count;i++) {
-				hash[i]=mvl_accumulate_hash64(hash[i], (const char *)&(mvl_vector_data_int64(vec[j])[indices[i]]), 8);
+				hash[i]=mvl_accumulate_hash64(hash[i], (const unsigned char *)&(mvl_vector_data_int64(vec[j])[indices[i]]), 8);
 				}
 			break;
 		case LIBMVL_PACKED_LIST64: {
@@ -1910,7 +1910,7 @@ for(j=0;j<vec_count;j++) {
 		case LIBMVL_VECTOR_CSTRING:
 		case LIBMVL_VECTOR_UINT8: 
 			for(i=0;i<indices_count;i++) {
-				hash[i]=mvl_accumulate_hash64(hash[i], (const char *)&(mvl_vector_data_uint8(vec[j])[i+i0]), 1);
+				hash[i]=mvl_accumulate_hash64(hash[i], (const unsigned char *)&(mvl_vector_data_uint8(vec[j])[i+i0]), 1);
 				}
 			break;
 		case LIBMVL_VECTOR_INT32:
@@ -1935,7 +1935,7 @@ for(j=0;j<vec_count;j++) {
 			break;
 		case LIBMVL_VECTOR_OFFSET64: /* TODO: we might want to do something more clever here */
 			for(i=0;i<indices_count;i++) {
-				hash[i]=mvl_accumulate_hash64(hash[i], (const char *)&(mvl_vector_data_int64(vec[j])[i+i0]), 8);
+				hash[i]=mvl_accumulate_hash64(hash[i], (const unsigned char *)&(mvl_vector_data_int64(vec[j])[i+i0]), 8);
 				}
 			break;
 		case LIBMVL_PACKED_LIST64: {

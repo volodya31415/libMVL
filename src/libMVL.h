@@ -207,7 +207,7 @@ typedef struct {
 	long size;
 	long free;
 	LIBMVL_OFFSET64 *offset;
-	char **tag;
+	unsigned char **tag;
 	long *tag_length;
 	
 	/* Optional hash table */
@@ -305,7 +305,7 @@ LIBMVL_OFFSET64 mvl_write_cached_string(LIBMVL_CONTEXT *ctx, long length, const 
 /* Create a packed list of strings 
  * str_size can be either NULL or provide string length, some of which can be -1 
  */
-LIBMVL_OFFSET64 mvl_write_packed_list(LIBMVL_CONTEXT *ctx, long count, const long *str_size, char **str, LIBMVL_OFFSET64 metadata);
+LIBMVL_OFFSET64 mvl_write_packed_list(LIBMVL_CONTEXT *ctx, long count, const long *str_size, unsigned char **str, LIBMVL_OFFSET64 metadata);
 
 /* This is convenient for writing several values of the same type as vector without allocating a temporary array.
  * This function creates the array internally using alloca().
@@ -656,7 +656,6 @@ return(0);
 static inline int mvl_packed_list_is_na(const LIBMVL_VECTOR *vec, const void *data, LIBMVL_OFFSET64 idx)
 {
 LIBMVL_OFFSET64 start, stop, len;
-char *s;
 if(mvl_vector_type(vec)!=LIBMVL_PACKED_LIST64)return 1;
 len=mvl_vector_length(vec);
 if((idx+1>=len) || (idx<0))return 1;
@@ -689,14 +688,14 @@ return(stop-start);
  * @param idx entry index 
  * @return a pointer to the beginning of the data. 
  */
-static inline const char * mvl_packed_list_get_entry(const LIBMVL_VECTOR *vec, const void *data, LIBMVL_OFFSET64 idx)
+static inline const unsigned char * mvl_packed_list_get_entry(const LIBMVL_VECTOR *vec, const void *data, LIBMVL_OFFSET64 idx)
 {
 LIBMVL_OFFSET64 start, len;
 if(mvl_vector_type(vec)!=LIBMVL_PACKED_LIST64)return NULL;
 len=mvl_vector_length(vec);
 if((idx+1>=len) || (idx<0))return NULL;
 start=mvl_vector_data_offset(vec)[idx];
-return(&(((const char *)(data))[start]));
+return(&(((const unsigned char *)(data))[start]));
 }
 
 LIBMVL_OFFSET64 mvl_find_directory_entry(LIBMVL_CONTEXT *ctx, const char *tag);
