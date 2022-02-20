@@ -220,7 +220,7 @@ typedef struct {
 	
 /*! @brief This structure describes MVL context - a collection of system data associated with a single MVL file. 
  * 
- *  For every accessed MVL file, whether for writing or memory mapped there must be one MVL context.
+ *  For every accessed MVL file, whether for writing or via a memory map there must be one MVL context.
  */
 typedef struct {
 	int alignment;
@@ -241,8 +241,12 @@ typedef struct {
 	LIBMVL_VECTOR_HEADER tmp_vh;
 	
 	int abort_on_error;
+	int flags;
 	
 	} LIBMVL_CONTEXT;
+	
+#define LIBMVL_CTX_FLAG_HAVE_POSIX_FALLOCATE	 (1<<0)
+#define LIBMVL_CTX_FLAG_HAVE_FTELLO	 	 (1<<1)
 	
 #define LIBMVL_ERR_FAIL_PREAMBLE	-1
 #define LIBMVL_ERR_FAIL_POSTAMBLE	-2

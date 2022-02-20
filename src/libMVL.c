@@ -56,6 +56,25 @@ p[len]=0;
 return(p);
 }
 
+#ifdef __APPLE__
+
+#else
+
+#define HAVE_FTELLO
+
+#endif
+
+off_t do_ftello(FILE *f)
+{
+#ifdef HAVE_FTELLO
+return(ftello(f));
+#else
+/* ftello() is broken on MacOS >= 10.15 */
+fflush(f);
+return(lseek(fileno(f), 0, SEEK_CUR));
+#endif
+}
+
 #ifndef HAVE_POSIX_FALLOCATE
 
 #if _POSIX_C_SOURCE >= 200112L
@@ -74,21 +93,21 @@ return(posix_fallocate(fileno(f), offset, len));
 
 #else
 
-size_t cur, end, i;
+off_t cur, end, i;
 int err;
 #ifndef FALLOCATE_BUF_SIZE
 #define FALLOCATE_BUF_SIZE 512
 #endif
 char buf[FALLOCATE_BUF_SIZE];
 
-cur=ftello(f);
+cur=do_ftello(f);
 if(cur<0)return(cur);
 
 if((err=fseeko(f, 0, SEEK_END))<0) {
 	return(err);
 	}
 	
-end=ftello(f);
+end=do_ftello(f);
 if(end<0)return(end);
 	
 if(end>=(offset+len))return(0);
@@ -96,7 +115,7 @@ if(end>=(offset+len))return(0);
 memset(buf, 0, FALLOCATE_BUF_SIZE);
 
 for(i=end;i<offset+len;i+=FALLOCATE_BUF_SIZE) {
-	int cnt=offset+len-i;
+	size_t cnt=offset+len-i;
 	if(cnt>FALLOCATE_BUF_SIZE)cnt=FALLOCATE_BUF_SIZE;
 	fwrite(buf, 1, cnt, f);
 	}
@@ -104,9 +123,10 @@ for(i=end;i<offset+len;i+=FALLOCATE_BUF_SIZE) {
 if((err=fseeko(f, cur, SEEK_SET))<0) {
 	return(err);
 	}
-return(0);	
+return(0);
 #endif
 }
+
 
 /*!  @brief Create MVL context 
  * 
@@ -131,6 +151,16 @@ ctx->directory_offset=-1;
 ctx->character_class_offset=0;
 
 ctx->cached_strings=mvl_create_named_list(32);
+
+ctx->flags=0;
+
+#ifdef HAVE_POSIX_FALLOCATE
+ctx->flags|=LIBMVL_CTX_FLAG_HAVE_POSIX_FALLOCATE;
+#endif
+
+#ifdef HAVE_FTELLO
+ctx->flags|=LIBMVL_CTX_FLAG_HAVE_FTELLO;
+#endif
 
 return(ctx);
 }
@@ -223,7 +253,7 @@ void mvl_rewrite(LIBMVL_CONTEXT *ctx, LIBMVL_OFFSET64 offset, LIBMVL_OFFSET64 le
 {
 LIBMVL_OFFSET64 n;
 off_t cur;
-cur=ftello(ctx->f);
+cur=do_ftello(ctx->f);
 if(cur<0) {
 	mvl_set_error(ctx, LIBMVL_ERR_FTELL);
 	return;
@@ -274,7 +304,7 @@ LIBMVL_OFFSET64 mvl_write_vector(LIBMVL_CONTEXT *ctx, int type, LIBMVL_OFFSET64 
 LIBMVL_OFFSET64 byte_length;
 int padding;
 unsigned char *zeros;
-LIBMVL_OFFSET64 offset;
+off_t offset;
 
 memset(&(ctx->tmp_vh), 0, sizeof(ctx->tmp_vh));
 
@@ -290,9 +320,9 @@ ctx->tmp_vh.length=length;
 ctx->tmp_vh.type=type;
 ctx->tmp_vh.metadata=metadata;
 
-offset=ftello(ctx->f);
+offset=do_ftello(ctx->f);
 
-if((long long)offset<0) {
+if(offset<0) {
 	perror("mvl_write_vector");
 	mvl_set_error(ctx, LIBMVL_ERR_FTELL);
 	return(LIBMVL_NULL_OFFSET);
@@ -324,7 +354,7 @@ LIBMVL_OFFSET64 mvl_start_write_vector(LIBMVL_CONTEXT *ctx, int type, LIBMVL_OFF
 LIBMVL_OFFSET64 byte_length, total_byte_length;
 int padding;
 unsigned char *zeros;
-LIBMVL_OFFSET64 offset;
+off_t offset;
 
 if(length>expected_length) {
 	mvl_set_error(ctx, LIBMVL_ERR_INVALID_PARAMETER);
@@ -363,9 +393,9 @@ ctx->tmp_vh.length=expected_length;
 ctx->tmp_vh.type=type;
 ctx->tmp_vh.metadata=metadata;
 
-offset=ftello(ctx->f);
+offset=do_ftello(ctx->f);
 
-if((long long)offset<0) {
+if(offset<0) {
 	perror("mvl_write_vector");
 	mvl_set_error(ctx, LIBMVL_ERR_FTELL);
 	return(LIBMVL_NULL_OFFSET);
@@ -586,7 +616,7 @@ LIBMVL_OFFSET64 mvl_write_concat_vectors(LIBMVL_CONTEXT *ctx, int type, long nve
 LIBMVL_OFFSET64 byte_length, length;
 int padding, item_size;
 unsigned char *zeros;
-LIBMVL_OFFSET64 offset;
+off_t offset;
 int i;
 
 length=0;
@@ -607,7 +637,7 @@ ctx->tmp_vh.length=length;
 ctx->tmp_vh.type=type;
 ctx->tmp_vh.metadata=metadata;
 
-offset=ftello(ctx->f);
+offset=do_ftello(ctx->f);
 
 if((long long)offset<0) {
 	perror("mvl_write_vector");
@@ -829,6 +859,7 @@ LIBMVL_OFFSET64 mvl_write_directory(LIBMVL_CONTEXT *ctx)
 {
 LIBMVL_OFFSET64 *p;
 LIBMVL_OFFSET64 offset;
+off_t cur;
 
 if(ctx->directory->free<1) {
 	mvl_set_error(ctx, LIBMVL_ERR_EMPTY_DIRECTORY);
@@ -846,12 +877,13 @@ for(int i=0;i<ctx->directory->free;i++) {
 	}
 
 	
-offset=ftello(ctx->f);
+cur=do_ftello(ctx->f);
 
-if((long long)offset<0) {
+if((long long)cur<0) {
 	perror("mvl_write_directory");
 	mvl_set_error(ctx, LIBMVL_ERR_FTELL);
 	}
+offset=cur;
 
 mvl_write_vector(ctx, LIBMVL_VECTOR_OFFSET64, 2*ctx->directory->free, p, LIBMVL_NO_METADATA);
 
