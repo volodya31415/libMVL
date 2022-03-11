@@ -221,7 +221,7 @@ switch(ctx->error) {
 	case LIBMVL_ERR_FTELL:
 		return("call to ftell() failed");
 	case LIBMVL_ERR_CORRUPT_POSTAMBLE:
-		return("corrupt postmable");
+		return("corrupt postamble");
 	case LIBMVL_ERR_INVALID_ATTR_LIST:
 		return("invalid attribute list");
 	case LIBMVL_ERR_INVALID_OFFSET:
