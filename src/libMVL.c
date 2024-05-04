@@ -24,13 +24,19 @@
 
 #include "libMVL.h"
 
-static void *do_malloc(long a, long b)
+static void *do_malloc(LIBMVL_OFFSET64 a, LIBMVL_OFFSET64 b)
 {
 void *r;
 int i=0;
+LIBMVL_OFFSET64 total_size;
+
+/* basic sanity checks */
 if(a<1)a=1;
 if(b<1)b=1;
-r=malloc(a*b);
+total_size=a*b;
+if(total_size<1)total_size=1;
+
+r=malloc(total_size);
 while(r==NULL){
 #ifdef USING_R
 	Rprintf("libMVL: Could not allocate %ld chunks of %ld bytes each (%ld bytes total)\n",a,b,a*b);
@@ -39,14 +45,14 @@ while(r==NULL){
 #endif
 //	if(i>args_info.memory_allocation_retries_arg)exit(-1);
 	sleep(10);
-	r=malloc(a*b);
+	r=malloc(total_size);
 	i++;
 	}
 //if(a*b>10e6)madvise(r, a*b, MADV_HUGEPAGE);
 return r;
 }
 
-static inline char *memndup(const char *s, int len)
+static inline char *memndup(const char *s, LIBMVL_OFFSET64 len)
 {
 char *p;
 int i;
