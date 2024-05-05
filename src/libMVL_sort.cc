@@ -3,62 +3,10 @@
 #include <functional>
 #include "pdqsort.h"
 #include "pdqidxsort.h"
+
+#define MVL_STATIC_MEMBERS 1
 #include "libMVL.h"
 
-
-template <class Numeric> 
-static void sort_indices_asc1(LIBMVL_OFFSET64 start, LIBMVL_OFFSET64 stop, LIBMVL_OFFSET64 *indices, Numeric *data)
-{
-//std::vector<std::reference_wrapper<LIBMVL_OFFSET64>> indices_pp(indices+start, indices+stop);
-//std::vector<LIBMVL_OFFSET64> indices_pp(indices+start, indices+stop);
-
-std::sort(indices+start, indices+stop, [data](LIBMVL_OFFSET64 i1, LIBMVL_OFFSET64 i2) { return(data[i1]<data[i2]); });
-}
-
-template <class Numeric> 
-static void sort_indices_asc2(LIBMVL_OFFSET64 start, LIBMVL_OFFSET64 stop, LIBMVL_OFFSET64 *indices, Numeric *data)
-{
-std::vector<std::pair<Numeric, LIBMVL_OFFSET64>> indices_pp;
-
-indices_pp.reserve(stop-start);
-for(LIBMVL_OFFSET64 i=start;i<stop;i++) {
-	indices_pp[i-start]=std::make_pair(data[indices[i]], indices[i]); 
-	}
-
-std::sort(indices_pp.begin(), indices_pp.begin()+(stop-start), [](std::pair<Numeric, LIBMVL_OFFSET64> i1, std::pair<Numeric, LIBMVL_OFFSET64> i2) { return (i1.first<i2.first);});
-
-for(LIBMVL_OFFSET64 i=start;i<stop;i++) {
-	indices[i]=indices_pp[i-start].second; 
-	}
-}
-
-// template <class Numeric> 
-// static void sort_indices_asc3(LIBMVL_OFFSET64 start, LIBMVL_OFFSET64 stop, LIBMVL_OFFSET64 *indices, Numeric *data)
-// {
-// std::vector<Numeric> values(data+start, data+stop);
-// 
-// /* TODO : pairs */
-// 
-// std::sort(indices_pp.begin(), indices_pp.begin()+(stop-start), [](std::pair<Numeric, LIBMVL_OFFSET64> i1, std::pair<Numeric, LIBMVL_OFFSET64> i2) { return (i1.first<i2.first);});
-// 
-// }
-
-template <class Numeric> 
-static void sort_indices_asc4(LIBMVL_OFFSET64 start, LIBMVL_OFFSET64 stop, LIBMVL_OFFSET64 *indices, Numeric *data)
-{
-std::vector<std::pair<Numeric, LIBMVL_OFFSET64>> indices_pp;
-
-indices_pp.reserve(stop-start);
-for(LIBMVL_OFFSET64 i=start;i<stop;i++) {
-	indices_pp[i-start]=std::make_pair(data[indices[i]], indices[i]); 
-	}
-
-pdqsort(indices_pp.begin(), indices_pp.begin()+(stop-start), [](std::pair<Numeric, LIBMVL_OFFSET64> i1, std::pair<Numeric, LIBMVL_OFFSET64> i2) { return (i1.first<i2.first);});
-
-for(LIBMVL_OFFSET64 i=start;i<stop;i++) {
-	indices[i]=indices_pp[i-start].second; 
-	}
-}
 
 template <class Numeric> 
 static void sort_indices_asc(LIBMVL_OFFSET64 count, LIBMVL_OFFSET64 *indices, Numeric *data)
@@ -98,7 +46,7 @@ static void sort_indices_packed_list64_asc(LIBMVL_OFFSET64 start, LIBMVL_OFFSET6
 {
 std::sort(indices+start, indices+stop, [vec, data](LIBMVL_OFFSET64 i1, LIBMVL_OFFSET64 i2) { 
 	LIBMVL_OFFSET64 al, bl, nn;
-	const char *ad, *bd;
+	const unsigned char *ad, *bd;
 	al=mvl_packed_list_get_entry_bytelength(vec, i1);
 	bl=mvl_packed_list_get_entry_bytelength(vec, i2);
 	ad=mvl_packed_list_get_entry(vec, data, i1);
@@ -117,7 +65,7 @@ static void sort_indices_packed_list64_desc(LIBMVL_OFFSET64 start, LIBMVL_OFFSET
 {
 std::sort(indices+start, indices+stop, [vec, data](LIBMVL_OFFSET64 i1, LIBMVL_OFFSET64 i2) { 
 	LIBMVL_OFFSET64 al, bl, nn;
-	const char *ad, *bd;
+	const unsigned char *ad, *bd;
 	al=mvl_packed_list_get_entry_bytelength(vec, i1);
 	bl=mvl_packed_list_get_entry_bytelength(vec, i2);
 	ad=mvl_packed_list_get_entry(vec, data, i1);
@@ -203,7 +151,7 @@ switch(mvl_vector_type(vec)) {
 	case LIBMVL_VECTOR_UINT8:
 	case LIBMVL_VECTOR_CSTRING: {
 		if(scratch.reserve((stop-start)*mvl_element_size(mvl_vector_type(vec)))<0)break;
-		unsigned char *b=mvl_vector_data(vec).b;
+		unsigned char *b=mvl_vector_data_uint8(vec);
 		unsigned char *d=(unsigned char*)scratch.data();
 		for(LIBMVL_OFFSET64 i=0;i<stop-start;i++)d[i]=b[indices[i+start]];
 		sort_indices_asc(stop-start, indices+start, d);
@@ -211,7 +159,7 @@ switch(mvl_vector_type(vec)) {
 		}
 	case LIBMVL_VECTOR_INT32: {
 		if(scratch.reserve((stop-start)*mvl_element_size(mvl_vector_type(vec)))<0)break;
-		int *b=mvl_vector_data(vec).i;
+		int *b=mvl_vector_data_int32(vec);
 		int *d=(int *)scratch.data();
 		for(LIBMVL_OFFSET64 i=0;i<stop-start;i++)d[i]=b[indices[i+start]];
 		sort_indices_asc(stop-start, indices+start, d);
@@ -219,7 +167,7 @@ switch(mvl_vector_type(vec)) {
 		}
 	case LIBMVL_VECTOR_FLOAT: {
 		if(scratch.reserve((stop-start)*mvl_element_size(mvl_vector_type(vec)))<0)break;
-		float *b=mvl_vector_data(vec).f;
+		float *b=mvl_vector_data_float(vec);
 		float *d=(float *)scratch.data();
 		for(LIBMVL_OFFSET64 i=0;i<stop-start;i++)d[i]=b[indices[i+start]];
 		sort_indices_asc(stop-start, indices+start, d);
@@ -227,7 +175,7 @@ switch(mvl_vector_type(vec)) {
 		}
 	case LIBMVL_VECTOR_INT64: {
 		if(scratch.reserve((stop-start)*mvl_element_size(mvl_vector_type(vec)))<0)break;
-		long long int *b=mvl_vector_data(vec).i64;
+		long long int *b=mvl_vector_data_int64(vec);
 		long long int *d=(long long int*)scratch.data();
 		for(LIBMVL_OFFSET64 i=0;i<stop-start;i++)d[i]=b[indices[i+start]];
 		sort_indices_asc(stop-start, indices+start, d);
@@ -235,7 +183,7 @@ switch(mvl_vector_type(vec)) {
 		}
 	case LIBMVL_VECTOR_OFFSET64: {
 		if(scratch.reserve((stop-start)*mvl_element_size(mvl_vector_type(vec)))<0)break;
-		LIBMVL_OFFSET64 *b=mvl_vector_data(vec).offset;
+		LIBMVL_OFFSET64 *b=mvl_vector_data_offset(vec);
 		LIBMVL_OFFSET64 *d=(LIBMVL_OFFSET64*)scratch.data();
 		for(LIBMVL_OFFSET64 i=0;i<stop-start;i++)d[i]=b[indices[i+start]];
 		sort_indices_asc(stop-start, indices+start, d);
@@ -243,7 +191,7 @@ switch(mvl_vector_type(vec)) {
 		}
 	case LIBMVL_VECTOR_DOUBLE: {
 		if(scratch.reserve((stop-start)*mvl_element_size(mvl_vector_type(vec)))<0)break;
-		double *b=mvl_vector_data(vec).d;
+		double *b=mvl_vector_data_double(vec);
 		double *d=(double *)scratch.data();
 		for(LIBMVL_OFFSET64 i=0;i<stop-start;i++)d[i]=b[indices[i+start]];
 		sort_indices_asc(stop-start, indices+start, d);
@@ -264,7 +212,7 @@ switch(mvl_vector_type(vec)) {
 	case LIBMVL_VECTOR_UINT8:
 	case LIBMVL_VECTOR_CSTRING: {
 		if(scratch.reserve((stop-start)*mvl_element_size(mvl_vector_type(vec)))<0)break;
-		unsigned char *b=mvl_vector_data(vec).b;
+		unsigned char *b=mvl_vector_data_uint8(vec);
 		unsigned char *d=(unsigned char*)scratch.data();
 		for(LIBMVL_OFFSET64 i=0;i<stop-start;i++)d[i]=b[indices[i+start]];
 		sort_indices_desc(stop-start, indices+start, d);
@@ -272,7 +220,7 @@ switch(mvl_vector_type(vec)) {
 		}
 	case LIBMVL_VECTOR_INT32: {
 		if(scratch.reserve((stop-start)*mvl_element_size(mvl_vector_type(vec)))<0)break;
-		int *b=mvl_vector_data(vec).i;
+		int *b=mvl_vector_data_int32(vec);
 		int *d=(int *)scratch.data();
 		for(LIBMVL_OFFSET64 i=0;i<stop-start;i++)d[i]=b[indices[i+start]];
 		sort_indices_desc(stop-start, indices+start, d);
@@ -280,7 +228,7 @@ switch(mvl_vector_type(vec)) {
 		}
 	case LIBMVL_VECTOR_FLOAT: {
 		if(scratch.reserve((stop-start)*mvl_element_size(mvl_vector_type(vec)))<0)break;
-		float *b=mvl_vector_data(vec).f;
+		float *b=mvl_vector_data_float(vec);
 		float *d=(float *)scratch.data();
 		for(LIBMVL_OFFSET64 i=0;i<stop-start;i++)d[i]=b[indices[i+start]];
 		sort_indices_desc(stop-start, indices+start, d);
@@ -288,7 +236,7 @@ switch(mvl_vector_type(vec)) {
 		}
 	case LIBMVL_VECTOR_INT64: {
 		if(scratch.reserve((stop-start)*mvl_element_size(mvl_vector_type(vec)))<0)break;
-		long long int *b=mvl_vector_data(vec).i64;
+		long long int *b=mvl_vector_data_int64(vec);
 		long long int *d=(long long int*)scratch.data();
 		for(LIBMVL_OFFSET64 i=0;i<stop-start;i++)d[i]=b[indices[i+start]];
 		sort_indices_desc(stop-start, indices+start, d);
@@ -296,7 +244,7 @@ switch(mvl_vector_type(vec)) {
 		}
 	case LIBMVL_VECTOR_OFFSET64: {
 		if(scratch.reserve((stop-start)*mvl_element_size(mvl_vector_type(vec)))<0)break;
-		LIBMVL_OFFSET64 *b=mvl_vector_data(vec).offset;
+		LIBMVL_OFFSET64 *b=mvl_vector_data_offset(vec);
 		LIBMVL_OFFSET64 *d=(LIBMVL_OFFSET64*)scratch.data();
 		for(LIBMVL_OFFSET64 i=0;i<stop-start;i++)d[i]=b[indices[i+start]];
 		sort_indices_desc(stop-start, indices+start, d);
@@ -304,7 +252,7 @@ switch(mvl_vector_type(vec)) {
 		}
 	case LIBMVL_VECTOR_DOUBLE: {
 		if(scratch.reserve((stop-start)*mvl_element_size(mvl_vector_type(vec)))<0)break;
-		double *b=mvl_vector_data(vec).d;
+		double *b=mvl_vector_data_double(vec);
 		double *d=(double *)scratch.data();
 		for(LIBMVL_OFFSET64 i=0;i<stop-start;i++)d[i]=b[indices[i+start]];
 		sort_indices_desc(stop-start, indices+start, d);
@@ -322,7 +270,7 @@ switch(mvl_vector_type(vec)) {
 static inline int mvl_packed64_equal(LIBMVL_VECTOR *vec, void *data, LIBMVL_OFFSET64 i1, LIBMVL_OFFSET64 i2)
 {
 LIBMVL_OFFSET64 al, bl;
-const char *ad, *bd;
+const unsigned char *ad, *bd;
 al=mvl_packed_list_get_entry_bytelength(vec, i1);
 bl=mvl_packed_list_get_entry_bytelength(vec, i2);
 if(al!=bl) {
