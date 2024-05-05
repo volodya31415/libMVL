@@ -36,12 +36,21 @@ if(b<1)b=1;
 total_size=a*b;
 if(total_size<1)total_size=1;
 
+if(total_size/b<a) {
+	#ifdef USING_R
+		Rprintf("libMVL: *** INTERNAL ERROR: Could not allocate %llu chunks of %llu bytes each because of overflow %llu total)\n",a,b,a*b);
+	#else
+		fprintf(stderr,"libMVL: *** INTERNAL ERROR: Could not allocate %llu chunks of %llu bytes each because of overflow %llu total\n",a,b,a*b);
+	#endif
+	return(NULL);
+	}
+
 r=malloc(total_size);
 while(r==NULL){
 #ifdef USING_R
-	Rprintf("libMVL: Could not allocate %ld chunks of %ld bytes each (%ld bytes total)\n",a,b,a*b);
+	Rprintf("libMVL: Could not allocate %llu chunks of %llu bytes each (%llu bytes total)\n",a,b,a*b);
 #else
-	fprintf(stderr,"libMVL: Could not allocate %ld chunks of %ld bytes each (%ld bytes total)\n",a,b,a*b);
+	fprintf(stderr,"libMVL: Could not allocate %llu chunks of %llu bytes each (%llu bytes total)\n",a,b,a*b);
 #endif
 //	if(i>args_info.memory_allocation_retries_arg)exit(-1);
 	sleep(10);
@@ -1348,6 +1357,7 @@ LIBMVL_POSTAMBLE *pa=(LIBMVL_POSTAMBLE *)&(((unsigned char *)data)[length-sizeof
 LIBMVL_VECTOR *dir, *a;
 LIBMVL_OFFSET64 k;
 int i;
+int err;
 
 if(strncmp(pr->signature, LIBMVL_SIGNATURE, 4)) {
 	mvl_set_error(ctx, LIBMVL_ERR_INVALID_SIGNATURE);
@@ -1365,8 +1375,15 @@ mvl_free_named_list(ctx->directory);
 
 switch(pa->type) {
 	case LIBMVL_VECTOR_POSTAMBLE2:
+		if((err=mvl_validate_vector(pa->directory, data, length))<0) {
+			ctx->directory=mvl_create_named_list(100);
+			mvl_set_error(ctx, LIBMVL_ERR_CORRUPT_POSTAMBLE);
+			return;
+			}
+
 		ctx->directory=mvl_read_named_list(ctx, data, pa->directory);
 		break;
+#ifdef MVL_OLD_DIRECTORY
 	case LIBMVL_VECTOR_POSTAMBLE1:
 		dir=(LIBMVL_VECTOR *)&(((unsigned char *)data)[pa->directory]);
 		k=dir->header.length>>1;
@@ -1399,8 +1416,9 @@ switch(pa->type) {
 			}
 		mvl_recompute_named_list_hash(ctx->directory);
 		break;
+#endif
 	default:
-		ctx->directory=mvl_create_named_list(100);		
+		ctx->directory=mvl_create_named_list(100);
 		mvl_set_error(ctx, LIBMVL_ERR_CORRUPT_POSTAMBLE);
 		return;
 	}
