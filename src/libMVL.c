@@ -251,6 +251,8 @@ switch(ctx->error) {
 		return("invalid length");
 	case LIBMVL_ERR_INVALID_EXTENT_INDEX:
 		return("invalid extent index");
+	case LIBMVL_ERR_CORRUPT_PACKED_LIST:
+		return("corrupt packed list");
 	default:
 		return("unknown error");
 	
@@ -1174,19 +1176,26 @@ return(list_offset);
 }
 
 /* This is meant to operate on memory mapped files */
-/*! @brief Read back MVL attributes list, typically used to described metadata. This function also initialize hash table for fast access.
+/*! @brief Read back MVL attributes list, typically used to described metadata. This function also initialize hash table for fast access. This function does not check that the offsets stored in returned LIBMVL_NAMED_LIST data structure are valid, this should be done by the code that uses those offsets.
  *   @param ctx MVL context pointer
  *   @param data memory mapped data
+ *   @param data_size size of memory mapped data
  *   @param metadata_offset metadata offset pointing to the previously written attributes
  *   @return NULL if there is no metadata, otherwise LIBMVL_NAMED_LIST populated with attributes
  */
-LIBMVL_NAMED_LIST *mvl_read_attributes_list(LIBMVL_CONTEXT *ctx, const void *data, LIBMVL_OFFSET64 metadata_offset)
+LIBMVL_NAMED_LIST *mvl_read_attributes_list(LIBMVL_CONTEXT *ctx, const void *data, LIBMVL_OFFSET64 data_size, LIBMVL_OFFSET64 metadata_offset)
 {
 LIBMVL_NAMED_LIST *L;
 long i, nattr;
 char *p, *d;
+int err;
 
 if(metadata_offset==LIBMVL_NO_METADATA)return(NULL);
+
+if((err=mvl_validate_vector(metadata_offset, data, data_size))!=0) {
+	mvl_set_error(ctx, LIBMVL_ERR_INVALID_OFFSET);
+	return(NULL);
+	}
 
 d=(char *)data;
 
@@ -1207,10 +1216,18 @@ nattr=nattr>>1;
 
 L=mvl_create_named_list(nattr);
 for(i=0;i<nattr;i++) {
-	mvl_add_list_entry(L, 
-		mvl_vector_length(&(d[mvl_vector_data_offset(p)[i]])), 
-		(const char *)mvl_vector_data_uint8(&(d[mvl_vector_data_offset(p)[i]])), 
-		mvl_vector_data_offset(p)[i+nattr]);
+	if((err=mvl_validate_vector(mvl_vector_data_offset(p)[i], data, data_size))!=0) {
+		mvl_set_error(ctx, LIBMVL_ERR_INVALID_OFFSET);
+		mvl_add_list_entry(L, 
+			9, 
+			"*CORRUPT*", 
+			mvl_vector_data_offset(p)[i+nattr]);
+		} else {
+		mvl_add_list_entry(L, 
+			mvl_vector_length(&(d[mvl_vector_data_offset(p)[i]])), 
+			(const char *)mvl_vector_data_uint8(&(d[mvl_vector_data_offset(p)[i]])), 
+			mvl_vector_data_offset(p)[i+nattr]);
+		}
 	}
 
 mvl_recompute_named_list_hash(L);
@@ -1221,17 +1238,24 @@ return(L);
 /*! @brief Read back MVL named list. This function also initialize hash table for fast access.
  *   @param ctx MVL context pointer
  *   @param data memory mapped data
+ *   @param data_size size of memory mapped data
  *   @param offset offset into data where LIBMVL_NAMED_LIST begins
  *   @return NULL on error, otherwise LIBMVL_NAMED_LIST
  */
-LIBMVL_NAMED_LIST *mvl_read_named_list(LIBMVL_CONTEXT *ctx, const void *data, LIBMVL_OFFSET64 offset)
+LIBMVL_NAMED_LIST *mvl_read_named_list(LIBMVL_CONTEXT *ctx, const void *data, LIBMVL_OFFSET64 data_size, LIBMVL_OFFSET64 offset)
 {
 LIBMVL_NAMED_LIST *L, *Lattr;
 char *d;
 LIBMVL_OFFSET64 names_ofs, tag_ofs;
 long i, nelem;
+int err;
 
 if(offset==LIBMVL_NULL_OFFSET)return(NULL);
+
+if((err=mvl_validate_vector(offset, data, data_size))!=0) {
+	mvl_set_error(ctx, LIBMVL_ERR_INVALID_OFFSET);
+	return(NULL);
+	}
 
 d=(char *)data;
 
@@ -1240,9 +1264,14 @@ if(mvl_vector_type(&(d[offset]))!=LIBMVL_VECTOR_OFFSET64){
 	return(NULL);
 	}
 
-Lattr=mvl_read_attributes_list(ctx, data, mvl_vector_metadata_offset(&(d[offset])));
+Lattr=mvl_read_attributes_list(ctx, data, data_size, mvl_vector_metadata_offset(&(d[offset])));
 if(Lattr==NULL)return(NULL);
 names_ofs=mvl_find_list_entry(Lattr, -1, "names");
+
+if((err=mvl_validate_vector(names_ofs, data, data_size))!=0) {
+	mvl_set_error(ctx, LIBMVL_ERR_INVALID_OFFSET);
+	return(NULL);
+	}
 
 nelem=mvl_vector_length(&(d[offset]));
 
@@ -1258,6 +1287,13 @@ switch(mvl_vector_type(&(d[names_ofs]))) {
 			}
 		for(i=0;i<nelem;i++) {
 			tag_ofs=mvl_vector_data_offset(&(d[names_ofs]))[i];
+			
+			if((err=mvl_validate_vector(tag_ofs, data, data_size))!=0) {
+				mvl_set_error(ctx, LIBMVL_ERR_INVALID_OFFSET);
+				mvl_add_list_entry(L, 9, "*CORRUPT*", mvl_vector_data_offset(&(d[offset]))[i]);
+				continue;
+				}
+				
 			mvl_add_list_entry(L, mvl_vector_length(&(d[tag_ofs])), (const char *)mvl_vector_data_uint8(&(d[tag_ofs])), mvl_vector_data_offset(&(d[offset]))[i]);
 			}
 		break;
@@ -1269,6 +1305,11 @@ switch(mvl_vector_type(&(d[names_ofs]))) {
 			return(NULL);
 			}
 		for(i=0;i<nelem;i++) {
+			if((err=mvl_packed_list_validate_entry((LIBMVL_VECTOR *)&(d[names_ofs]), d, data_size, i))!=0) {
+				mvl_set_error(ctx, LIBMVL_ERR_CORRUPT_PACKED_LIST);
+				mvl_add_list_entry(L, 9, "*CORRUPT*", mvl_vector_data_offset(&(d[offset]))[i]);
+				continue;
+				}
 			mvl_add_list_entry(L, mvl_packed_list_get_entry_bytelength((LIBMVL_VECTOR *)&(d[names_ofs]), i), (const char *)mvl_packed_list_get_entry((LIBMVL_VECTOR *)&(d[names_ofs]), d, i), mvl_vector_data_offset(&(d[offset]))[i]);
 			}
 		break;
@@ -1381,7 +1422,7 @@ switch(pa->type) {
 			return;
 			}
 
-		ctx->directory=mvl_read_named_list(ctx, data, pa->directory);
+		ctx->directory=mvl_read_named_list(ctx, data, length, pa->directory);
 		break;
 #ifdef MVL_OLD_DIRECTORY
 	case LIBMVL_VECTOR_POSTAMBLE1:
@@ -2662,11 +2703,11 @@ return(offset);
 
 /*!  @brief Load extent index from memory mapped MVL file
  */
-int mvl_load_extent_index(LIBMVL_CONTEXT *ctx, void *data, LIBMVL_OFFSET64 offset, LIBMVL_EXTENT_INDEX *ei)
+int mvl_load_extent_index(LIBMVL_CONTEXT *ctx, void *data, LIBMVL_OFFSET64 data_size, LIBMVL_OFFSET64 offset, LIBMVL_EXTENT_INDEX *ei)
 {
 LIBMVL_NAMED_LIST *L;
 LIBMVL_VECTOR *vec;
-L=mvl_read_named_list(ctx, data, offset);
+L=mvl_read_named_list(ctx, data, data_size, offset);
 
 mvl_free_extent_index_arrays(ei);
 ei->partition.count=0;
@@ -2680,7 +2721,7 @@ if(L==NULL) {
 	return(LIBMVL_ERR_INVALID_EXTENT_INDEX);
 	}
 	
-vec=mvl_vector_from_offset(data, mvl_find_list_entry(L, -1, "partition"));
+vec=mvl_validated_vector_from_offset(data, data_size, mvl_find_list_entry(L, -1, "partition"));
 if(vec==NULL) {
 	ei->partition.count=0;
 	ei->hash_map.hash_count=0;
@@ -2692,7 +2733,7 @@ ei->partition.size=0;
 ei->partition.offset=mvl_vector_data_offset(vec);
 ei->partition.count=mvl_vector_length(vec);
 
-vec=mvl_vector_from_offset(data, mvl_find_list_entry(L, -1, "hash"));
+vec=mvl_validated_vector_from_offset(data, data_size, mvl_find_list_entry(L, -1, "hash"));
 if(vec==NULL) {
 	ei->partition.count=0;
 	ei->hash_map.hash_count=0;
@@ -2718,7 +2759,7 @@ ei->hash_map.first=NULL;
 ei->hash_map.first_count=0;
 #endif
 
-vec=mvl_vector_from_offset(data, mvl_find_list_entry(L, -1, "next"));
+vec=mvl_validated_vector_from_offset(data, data_size, mvl_find_list_entry(L, -1, "next"));
 if(vec==NULL || mvl_vector_length(vec)!=ei->hash_map.hash_count) {
 	ei->partition.count=0;
 	ei->hash_map.hash_count=0;
@@ -2727,7 +2768,7 @@ if(vec==NULL || mvl_vector_length(vec)!=ei->hash_map.hash_count) {
 	}
 ei->hash_map.next=mvl_vector_data_offset(vec);
 
-vec=mvl_vector_from_offset(data, mvl_find_list_entry(L, -1, "hash_map"));
+vec=mvl_validated_vector_from_offset(data, data_size, mvl_find_list_entry(L, -1, "hash_map"));
 if(vec==NULL) {
 	ei->partition.count=0;
 	ei->hash_map.hash_count=0;
@@ -2737,7 +2778,7 @@ if(vec==NULL) {
 ei->hash_map.hash_map_size=mvl_vector_length(vec);
 ei->hash_map.hash_map=mvl_vector_data_offset(vec);
 
-vec=mvl_vector_from_offset(data, mvl_find_list_entry(L, -1, "vec_types"));
+vec=mvl_validated_vector_from_offset(data, data_size, mvl_find_list_entry(L, -1, "vec_types"));
 if(vec==NULL) {
 	ei->partition.count=0;
 	ei->hash_map.hash_count=0;

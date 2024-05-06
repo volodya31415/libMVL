@@ -38,7 +38,7 @@ fin=NULL;
 ctx=mvl_create_context();
 mvl_load_image(ctx, length, data);
 
-L=mvl_read_named_list(ctx, data, mvl_find_directory_entry(ctx, "df"));
+L=mvl_read_named_list(ctx, data, length, mvl_find_directory_entry(ctx, "df"));
 
 offset_ad=mvl_find_list_entry(L, -1, "ad");
 if(offset_ad==LIBMVL_NULL_OFFSET) {

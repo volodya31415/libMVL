@@ -266,6 +266,7 @@ typedef struct {
 #define LIBMVL_ERR_INVALID_PARAMETER	-16
 #define LIBMVL_ERR_INVALID_LENGTH	-17
 #define LIBMVL_ERR_INVALID_EXTENT_INDEX	-18
+#define LIBMVL_ERR_CORRUPT_PACKED_LIST	-19
 	
 LIBMVL_CONTEXT *mvl_create_context(void);
 void mvl_free_context(LIBMVL_CONTEXT *ctx);
@@ -345,7 +346,7 @@ LIBMVL_OFFSET64 mvl_find_list_entry(LIBMVL_NAMED_LIST *L, long tag_length, const
 LIBMVL_OFFSET64 mvl_write_attributes_list(LIBMVL_CONTEXT *ctx, LIBMVL_NAMED_LIST *L);
 
 /* This is meant to operate on memory mapped (or in-memory) files */
-LIBMVL_NAMED_LIST *mvl_read_attributes_list(LIBMVL_CONTEXT *ctx, const void *data, LIBMVL_OFFSET64 metadata_offset);
+LIBMVL_NAMED_LIST *mvl_read_attributes_list(LIBMVL_CONTEXT *ctx, const void *data, LIBMVL_OFFSET64 data_size, LIBMVL_OFFSET64 metadata_offset);
 
 /* Convenience function that create a named list populated with necessary entries
  * It needs writable context to write attribute values */
@@ -370,7 +371,7 @@ LIBMVL_OFFSET64 mvl_write_named_list2(LIBMVL_CONTEXT *ctx, LIBMVL_NAMED_LIST *L,
 LIBMVL_OFFSET64 mvl_write_named_list_as_data_frame(LIBMVL_CONTEXT *ctx, LIBMVL_NAMED_LIST *L, int nrows, LIBMVL_OFFSET64 rownames);
 
 /* This is meant to operate on memory mapped (or in-memory) files */
-LIBMVL_NAMED_LIST *mvl_read_named_list(LIBMVL_CONTEXT *ctx, const void *data, LIBMVL_OFFSET64 offset);
+LIBMVL_NAMED_LIST *mvl_read_named_list(LIBMVL_CONTEXT *ctx, const void *data, LIBMVL_OFFSET64 data_size, LIBMVL_OFFSET64 offset);
 
 void mvl_open(LIBMVL_CONTEXT *ctx, FILE *f);
 void mvl_close(LIBMVL_CONTEXT *ctx);
@@ -485,6 +486,18 @@ static inline LIBMVL_VECTOR * mvl_vector_from_offset(void *data, LIBMVL_OFFSET64
 return(offset==0 ? NULL : (LIBMVL_VECTOR *)(&(((unsigned char*)data)[offset])));
 }
 
+/*! @brief A convenience function to convert an offset into memory mapped data into a pointer to LIBMVL_VECTOR structure.
+ * 
+ *  This function validates vector structure, but not the contents of the vector.
+ * 
+ *  @param data  pointer to memory mapped MVL file
+ *  @param offset 64-bit offset into MVL file
+ *  @return pointer to LIBMVL_VECTOR structure stored in MVL file
+ */
+static inline LIBMVL_VECTOR * mvl_validated_vector_from_offset(void *data, LIBMVL_OFFSET64 data_size, LIBMVL_OFFSET64 offset)
+{
+return(((offset==0) || (mvl_validate_vector(offset, data, data_size)!=0)) ? NULL : (LIBMVL_VECTOR *)(&(((unsigned char*)data)[offset])));
+}
 
 
 /* These two convenience functions are meant for retrieving a few values, such as stored configuration parameters.
@@ -700,6 +713,26 @@ len=mvl_vector_length(vec);
 if((idx+1>=len) || (idx<0))return NULL;
 start=mvl_vector_data_offset(vec)[idx];
 return(&(((const unsigned char *)(data))[start]));
+}
+
+/* Validate packed list entry */
+/*! @brief Get pointer to the start of string element idx from a packed list
+ * @param vec a pointer to LIBMVL_VECTOR with type LIBMVL_PACKED_LIST64
+ * @param data a pointer to beginning of  memory mapped MVL file
+ * @param idx entry index 
+ * @return a pointer to the beginning of the data. 
+ */
+static inline int mvl_packed_list_validate_entry(const LIBMVL_VECTOR *vec, const void *data, LIBMVL_OFFSET64 data_size, LIBMVL_OFFSET64 idx)
+{
+LIBMVL_OFFSET64 start, stop, len;
+if(mvl_vector_type(vec)!=LIBMVL_PACKED_LIST64)return -1;
+len=mvl_vector_length(vec);
+if((idx+1>=len) || (idx<0))return -2;
+start=mvl_vector_data_offset(vec)[idx];
+stop=mvl_vector_data_offset(vec)[idx+1];
+if(start>data_size)return(-3);
+if(stop>data_size)return(-4);
+return(0);
 }
 
 LIBMVL_OFFSET64 mvl_find_directory_entry(LIBMVL_CONTEXT *ctx, const char *tag);
@@ -1131,7 +1164,7 @@ void mvl_init_extent_index(LIBMVL_EXTENT_INDEX *ei);
 void mvl_free_extent_index_arrays(LIBMVL_EXTENT_INDEX *ei);
 int mvl_compute_extent_index(LIBMVL_EXTENT_INDEX *ei, LIBMVL_OFFSET64 count, LIBMVL_VECTOR **vec, void **data);
 LIBMVL_OFFSET64 mvl_write_extent_index(LIBMVL_CONTEXT *ctx, LIBMVL_EXTENT_INDEX *ei);
-int mvl_load_extent_index(LIBMVL_CONTEXT *ctx, void *data, LIBMVL_OFFSET64 offset, LIBMVL_EXTENT_INDEX *ei);
+int mvl_load_extent_index(LIBMVL_CONTEXT *ctx, void *data, LIBMVL_OFFSET64 data_size, LIBMVL_OFFSET64 offset, LIBMVL_EXTENT_INDEX *ei);
 
 /*! @brief Alter extent list to contain no extents without freeing memory
  * 
