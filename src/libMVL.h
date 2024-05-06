@@ -386,6 +386,17 @@ void mvl_write_postamble(LIBMVL_CONTEXT *ctx);
  */
 #define mvl_vector_length(data)   (((LIBMVL_VECTOR_HEADER *)(data))->length)
 
+/*! @brief Return number of entries in the vector. Currently this is the same as mvl_vector_length() for all types except LIBMVL_PACKED_LIST64
+ *  @param vec pointer to start of the vector
+ */
+static inline LIBMVL_OFFSET64 mvl_vector_nentries(void *vec)
+{
+LIBMVL_VECTOR_HEADER *vec0=(LIBMVL_VECTOR_HEADER *)vec;
+LIBMVL_OFFSET64 N;
+N=mvl_vector_length(vec0);
+return((mvl_vector_type(vec0)==LIBMVL_PACKED_LIST64) ? N-1 : N);
+}
+
 #if MVL_STATIC_MEMBERS
 /*! @brief Return base data from a pointer to LIBMVL_VECTOR 
  * 

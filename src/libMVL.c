@@ -1822,9 +1822,8 @@ info.nvec=vec_count;
 
 units=do_malloc(indices_count, sizeof(*units));
 
-N=mvl_vector_length(vec[0]);
+N=mvl_vector_nentries(vec[0]);
 //fprintf(stderr, "vec_count=%d N=%d\n", vec_count, N);
-if(mvl_vector_type(vec[0])==LIBMVL_PACKED_LIST64)N--;
 for(i=1;i<vec_count;i++) {
 	if(mvl_vector_type(vec[i])==LIBMVL_PACKED_LIST64) {
 		if(mvl_vector_length(vec[i])!=N+1)return -1;
