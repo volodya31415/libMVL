@@ -1873,7 +1873,7 @@ return 0;
  * @param vec_data an array of pointers to memory mapped areas those LIBMVL_VECTORs derive from. This allows computing hash from vectors drawn from different MVL files
  * @param flags flags specifying whether to initialize or finalize hash
  */
-int mvl_hash_indices(LIBMVL_OFFSET64 indices_count, const LIBMVL_OFFSET64 *indices, LIBMVL_OFFSET64 *hash, LIBMVL_OFFSET64 vec_count, LIBMVL_VECTOR **vec, void **vec_data, int flags)
+int mvl_hash_indices(LIBMVL_OFFSET64 indices_count, const LIBMVL_OFFSET64 *indices, LIBMVL_OFFSET64 *hash, LIBMVL_OFFSET64 vec_count, LIBMVL_VECTOR **vec, void **vec_data, LIBMVL_OFFSET64 *vec_data_length, int flags)
 {
 LIBMVL_OFFSET64 i, j, N;
 
@@ -1939,6 +1939,8 @@ for(j=0;j<vec_count;j++) {
 			if(vec_data==NULL)return -6;
 			if(vec_data[j]==NULL)return -7;
 			for(i=0;i<indices_count;i++) {
+				if(mvl_packed_list_validate_entry(vec[j], vec_data[j], vec_data_length[j], indices[i]))return -8;
+				
 				hash[i]=mvl_accumulate_hash64(hash[i], mvl_packed_list_get_entry(vec[j], vec_data[j], indices[i]), mvl_packed_list_get_entry_bytelength(vec[j], indices[i]));
 				}
 			break;
@@ -1972,7 +1974,7 @@ return 0;
  * @param vec_data an array of pointers to memory mapped areas those LIBMVL_VECTORs derive from. This allows computing hash from vectors drawn from different MVL files
  * @param flags flags specifying whether to initialize or finalize hash
  */
-int mvl_hash_range(LIBMVL_OFFSET64 i0, LIBMVL_OFFSET64 i1, LIBMVL_OFFSET64 *hash, LIBMVL_OFFSET64 vec_count, LIBMVL_VECTOR **vec, void **vec_data, int flags)
+int mvl_hash_range(LIBMVL_OFFSET64 i0, LIBMVL_OFFSET64 i1, LIBMVL_OFFSET64 *hash, LIBMVL_OFFSET64 vec_count, LIBMVL_VECTOR **vec, void **vec_data, LIBMVL_OFFSET64 *vec_data_length, int flags)
 {
 LIBMVL_OFFSET64 i, j, N, indices_count;
 
@@ -2038,6 +2040,8 @@ for(j=0;j<vec_count;j++) {
 			if(vec_data==NULL)return -6;
 			if(vec_data[j]==NULL)return -7;
 			for(i=0;i<indices_count;i++) {
+				if(mvl_packed_list_validate_entry(vec[j], vec_data[j], vec_data_length[j], i+i0))return -8;
+				
 				hash[i]=mvl_accumulate_hash64(hash[i], mvl_packed_list_get_entry(vec[j], vec_data[j], i+i0), mvl_packed_list_get_entry_bytelength(vec[j], i+i0));
 				}
 			break;
@@ -2631,7 +2635,7 @@ ei->hash_map.vec_count=0;
  *  @param data an array of pointers to memory mapped areas those LIBMVL_VECTORs derive from. This allows computing hash from vectors drawn from different MVL 
  *  @return an integer error code, or 0 on success
  */
-int mvl_compute_extent_index(LIBMVL_EXTENT_INDEX *ei, LIBMVL_OFFSET64 count, LIBMVL_VECTOR **vec, void **data)
+int mvl_compute_extent_index(LIBMVL_EXTENT_INDEX *ei, LIBMVL_OFFSET64 count, LIBMVL_VECTOR **vec, void **data, LIBMVL_OFFSET64 *data_length)
 {
 int err;
 ei->partition.count=0;
@@ -2663,7 +2667,7 @@ if(ei->hash_map.hash_map_size<ei->hash_map.hash_count || !(ei->hash_map.flags & 
 	ei->hash_map.hash_map=do_malloc(ei->hash_map.hash_map_size, sizeof(*ei->hash_map.hash_map));
 	}
 
-if((err=mvl_hash_indices(ei->hash_map.hash_count, ei->partition.offset, ei->hash_map.hash, count, vec, data, LIBMVL_COMPLETE_HASH))!=0)return(err);
+if((err=mvl_hash_indices(ei->hash_map.hash_count, ei->partition.offset, ei->hash_map.hash, count, vec, data, data_length, LIBMVL_COMPLETE_HASH))!=0)return(err);
    
 if(ei->hash_map.flags & MVL_FLAG_OWN_VEC_TYPES)
 	free(ei->hash_map.vec_types);
