@@ -751,7 +751,7 @@ LIBMVL_OFFSET64 mvl_find_directory_entry(LIBMVL_CONTEXT *ctx, const char *tag);
 /* This initializes context to use in-memory image of given length starting at data
  * the image could have been loaded via fread, or memory mapped
  */
-void mvl_load_image(LIBMVL_CONTEXT *ctx, LIBMVL_OFFSET64 length, const void *data);
+void mvl_load_image(LIBMVL_CONTEXT *ctx, const void *data, LIBMVL_OFFSET64 length);
 
 
 /*! @def LIBMVL_SORT_LEXICOGRAPHIC
@@ -1114,14 +1114,14 @@ void mvl_find_first_hashes(LIBMVL_OFFSET64 key_count, const LIBMVL_OFFSET64 *key
  * An auxiliary array key_last of length key_indices_count stores the stop before index (in terms of matches array). 
  * In particular the total number of matches is given by key_last[key_indices_count-1]
  */
-int mvl_find_matches(LIBMVL_OFFSET64 key_indices_count, const LIBMVL_OFFSET64 *key_indices, LIBMVL_OFFSET64 key_vec_count, LIBMVL_VECTOR **key_vec, void **key_vec_data, LIBMVL_OFFSET64 *key_hash,
-			   LIBMVL_OFFSET64 indices_count, const LIBMVL_OFFSET64 *indices, LIBMVL_OFFSET64 vec_count, LIBMVL_VECTOR **vec, void **vec_data, HASH_MAP *hm, 
+int mvl_find_matches(LIBMVL_OFFSET64 key_indices_count, const LIBMVL_OFFSET64 *key_indices, LIBMVL_OFFSET64 key_vec_count, LIBMVL_VECTOR **key_vec, void **key_vec_data, LIBMVL_OFFSET64 *key_vec_data_length, LIBMVL_OFFSET64 *key_hash,
+			   LIBMVL_OFFSET64 indices_count, const LIBMVL_OFFSET64 *indices, LIBMVL_OFFSET64 vec_count, LIBMVL_VECTOR **vec, void **vec_data, LIBMVL_OFFSET64 *vec_data_length, HASH_MAP *hm, 
 			   LIBMVL_OFFSET64 *key_last, LIBMVL_OFFSET64 pairs_size, LIBMVL_OFFSET64 *key_match_indices, LIBMVL_OFFSET64 *match_indices);
 
 /* This function transforms HASH_MAP into a list of groups. 
  * After calling hm->hash_map is invalid, but hm->first and hm->next describe exactly identical rows 
  */
-void mvl_find_groups(LIBMVL_OFFSET64 indices_count, const LIBMVL_OFFSET64 *indices, LIBMVL_OFFSET64 vec_count, LIBMVL_VECTOR **vec, void **vec_data, HASH_MAP *hm);
+void mvl_find_groups(LIBMVL_OFFSET64 indices_count, const LIBMVL_OFFSET64 *indices, LIBMVL_OFFSET64 vec_count, LIBMVL_VECTOR **vec, void **vec_data, LIBMVL_OFFSET64 *vec_data_length, HASH_MAP *hm);
 
 
 /*! @brief List of offsets partitioning the vector. First element is always 0, last element is vector size.
@@ -1136,7 +1136,7 @@ typedef struct {
 
 void mvl_init_partition(LIBMVL_PARTITION *el);
 void mvl_extend_partition(LIBMVL_PARTITION *el, LIBMVL_OFFSET64 nelem);
-void mvl_find_repeats(LIBMVL_PARTITION *partition, LIBMVL_OFFSET64 count, LIBMVL_VECTOR **vec, void **data);
+void mvl_find_repeats(LIBMVL_PARTITION *partition, LIBMVL_OFFSET64 count, LIBMVL_VECTOR **vec, void **data, LIBMVL_OFFSET64 *data_length);
 void mvl_free_partition_arrays(LIBMVL_PARTITION *el);
 
 #ifndef LIBMVL_EXTENT_INLINE_SIZE

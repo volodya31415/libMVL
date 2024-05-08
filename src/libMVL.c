@@ -1393,10 +1393,10 @@ return(mvl_find_list_entry(ctx->directory, -1, tag));
 
 /*! @brief Initilize MVL context to operate with memory mapped area data.
  *   @param ctx MVL context pointer
- *   @param length size of memory mapped data, in bytes
  *   @param data pointer to the beginning of memory mapped area
+ *   @param length size of memory mapped data, in bytes
  */
-void mvl_load_image(LIBMVL_CONTEXT *ctx, LIBMVL_OFFSET64 length, const void *data)
+void mvl_load_image(LIBMVL_CONTEXT *ctx, const void *data, LIBMVL_OFFSET64 length)
 {
 LIBMVL_PREAMBLE *pr=(LIBMVL_PREAMBLE *)data;
 LIBMVL_POSTAMBLE *pa=(LIBMVL_POSTAMBLE *)&(((unsigned char *)data)[length-sizeof(LIBMVL_POSTAMBLE)]);
@@ -1473,6 +1473,7 @@ switch(pa->type) {
 typedef struct {
 	LIBMVL_VECTOR **vec;
 	void **data; /* This is needed for packed vectors */
+	LIBMVL_OFFSET64 *data_length;
 	LIBMVL_OFFSET64 nvec;
 	} MVL_SORT_INFO;
 
@@ -1603,6 +1604,8 @@ for(i=0;i<N;i++) {
 			LIBMVL_OFFSET64 al, bl, nn;
 			const unsigned char *ad, *bd;
 			if(mvl_vector_type(bvec)!=mvl_vector_type(avec))return 0;
+			if(mvl_packed_list_validate_entry(avec, a->info->data[i], a->info->data_length[i], ai))return 0;
+			if(mvl_packed_list_validate_entry(bvec, b->info->data[i], b->info->data_length[i], bi))return 0;
 			al=mvl_packed_list_get_entry_bytelength(avec, ai);
 			bl=mvl_packed_list_get_entry_bytelength(bvec, bi);
 			ad=mvl_packed_list_get_entry(avec, a->info->data[i], ai);
@@ -1620,6 +1623,8 @@ for(i=0;i<N;i++) {
 	}
 return 1;
 }
+
+#if 0
 
 /* The comparison functions below use absolute index as a last resort in comparison which preserves order for identical entries.
  * This makes these functions unsuitable to check equality
@@ -1813,7 +1818,7 @@ return 0;
  * 
  * This function return 0 on successful sort. If no vectors are supplies (vec_count==0) the indices are unchanged and the sort is considered successful.
  */
-int mvl_sort_indices1(LIBMVL_OFFSET64 indices_count, LIBMVL_OFFSET64 *indices, LIBMVL_OFFSET64 vec_count, LIBMVL_VECTOR **vec, void **vec_data, int sort_function)
+int mvl_sort_indices1(LIBMVL_OFFSET64 indices_count, LIBMVL_OFFSET64 *indices, LIBMVL_OFFSET64 vec_count, LIBMVL_VECTOR **vec, void **vec_data, LIBMVL_OFFSET64 *vec_data_length, int sort_function)
 {
 MVL_SORT_UNIT *units;
 MVL_SORT_INFO info;
@@ -1822,6 +1827,7 @@ LIBMVL_OFFSET64 i, N;
 if(vec_count<1)return 0;
 
 info.data=vec_data;
+info.data_length=vec_data_length;
 info.vec=vec;
 info.nvec=vec_count;
 
@@ -1862,6 +1868,7 @@ for(i=0;i<indices_count;i++) {
 free(units);
 return 0;
 }
+#endif
 
 /*! @brief This function is used to compute 64 bit hash of vector values
  * array hash[] is passed in and contains the result of the computation
@@ -2290,12 +2297,14 @@ if(hash_map_size & hash_mask) {
  *  @param key_vec_count number of vectors in "key" table set
  *  @param key_vec an array of vectors in "key" table set
  *  @param key_vec_data an array of pointers to memory mapped areas those "key" vectors derive from. This allows computing hash from vectors drawn from different MVL files
+ *  @param key_vec_data an array of lengths of memory mapped areas those "key" vectors derive from. 
  *  @param key_hash an array of hashes of "key" vectors computed with mvl_hash_indices()
  *  @param indices_count  number of entries in indices array
  *  @param indices an array with indices into "main" table-like vector set
  *  @param vec_count number of vectors in "main" table set
  *  @param vec an array of vectors in "main" table set
  *  @param vec_data an array of pointers to memory mapped areas those "main" vectors derive from. This allows computing hash from vectors drawn from different MVL files
+ *  @param vec_data an array of length of memory mapped areas those "main" vectors derive from.
  *  @param hm a previosly computed HASH_MAP of "main" table set
  *  @param key_last this is an output array of size key_indices_count that describes stretches of matches with indentical "key" rows. Thus for "key" row i, the corresponding stretch is key_last[i-1] to key_last[i]-1
  *  @param pairs_size the size of allocated key_match_indices and match_indices arrays. This value can be computed with mvl_hash_match_count().
@@ -2303,8 +2312,8 @@ if(hash_map_size & hash_mask) {
  *  @param match_indices an array of "main" indices from each pair
  *  @return 0 if everything went well, otherwise a negative error code
  */
-int mvl_find_matches(LIBMVL_OFFSET64 key_indices_count, const LIBMVL_OFFSET64 *key_indices, LIBMVL_OFFSET64 key_vec_count, LIBMVL_VECTOR **key_vec, void **key_vec_data, LIBMVL_OFFSET64 *key_hash,
-			   LIBMVL_OFFSET64 indices_count, const LIBMVL_OFFSET64 *indices, LIBMVL_OFFSET64 vec_count, LIBMVL_VECTOR **vec, void **vec_data, HASH_MAP *hm, 
+int mvl_find_matches(LIBMVL_OFFSET64 key_indices_count, const LIBMVL_OFFSET64 *key_indices, LIBMVL_OFFSET64 key_vec_count, LIBMVL_VECTOR **key_vec, void **key_vec_data, LIBMVL_OFFSET64 *key_vec_data_length, LIBMVL_OFFSET64 *key_hash,
+			   LIBMVL_OFFSET64 indices_count, const LIBMVL_OFFSET64 *indices, LIBMVL_OFFSET64 vec_count, LIBMVL_VECTOR **vec, void **vec_data, LIBMVL_OFFSET64 *vec_data_length, HASH_MAP *hm, 
 			   LIBMVL_OFFSET64 *key_last, LIBMVL_OFFSET64 pairs_size, LIBMVL_OFFSET64 *key_match_indices, LIBMVL_OFFSET64 *match_indices)
 {
 LIBMVL_OFFSET64 *hash, *hash_map, *next;
@@ -2314,10 +2323,12 @@ MVL_SORT_UNIT key_su, su;
 
 key_si.vec=key_vec;
 key_si.data=key_vec_data;
+key_si.data_length=key_vec_data_length;
 key_si.nvec=key_vec_count;
 
 si.vec=vec;
 si.data=vec_data;
+si.data_length=vec_data_length;
 si.nvec=vec_count;
 
 key_su.info=&key_si;
@@ -2377,9 +2388,10 @@ return(0);
  *  @param vec_count the number of LIBMVL_VECTORS considered as columns in a table
  *  @param vec an array of pointers to LIBMVL_VECTORS considered as columns in a table
  *  @param vec_data an array of pointers to memory mapped areas those LIBMVL_VECTORs derive from. This allows computing hash from vectors drawn from different MVL 
+ *  @param vec_data_length an array of lengths of memory mapped areas those LIBMVL_VECTORs derive from.
  *  @param hm a previously computed (with mvl_compute_hash_map()) HASH_MAP
  */
-void mvl_find_groups(LIBMVL_OFFSET64 indices_count, const LIBMVL_OFFSET64 *indices, LIBMVL_OFFSET64 vec_count, LIBMVL_VECTOR **vec, void **vec_data, HASH_MAP *hm)
+void mvl_find_groups(LIBMVL_OFFSET64 indices_count, const LIBMVL_OFFSET64 *indices, LIBMVL_OFFSET64 vec_count, LIBMVL_VECTOR **vec, void **vec_data, LIBMVL_OFFSET64 *vec_data_length, HASH_MAP *hm)
 {
 LIBMVL_OFFSET64 *hash, *tmp, *next;
 LIBMVL_OFFSET64 i, j, l, m, k, group_count, first_count, a;
@@ -2388,6 +2400,7 @@ MVL_SORT_UNIT su1, su2;
 
 si.vec=vec;
 si.data=vec_data;
+si.data_length=vec_data_length;
 si.nvec=vec_count;
 
 su1.info=&si;
@@ -2465,8 +2478,9 @@ el->size=new_size;
  *  @param count Number of vectors in vec
  *  @param vec Array of vectors with identical number of elements
  *  @param data Mapped data areas (needed to compare strings)
+ *  @param data_length Lengths of mapped data areas (needed to compare strings)
  */
-void mvl_find_repeats(LIBMVL_PARTITION *el, LIBMVL_OFFSET64 count, LIBMVL_VECTOR **vec, void **data)
+void mvl_find_repeats(LIBMVL_PARTITION *el, LIBMVL_OFFSET64 count, LIBMVL_VECTOR **vec, void **data, LIBMVL_OFFSET64 *data_length)
 {
 LIBMVL_OFFSET64 N;
 MVL_SORT_INFO info;
@@ -2494,6 +2508,7 @@ for(LIBMVL_OFFSET64 i=1;i<count;i++) {
 
 info.vec=vec;
 info.data=data;
+info.data_length=data_length;
 info.nvec=count;
 
 a.info=&info;
@@ -2646,7 +2661,7 @@ int mvl_compute_extent_index(LIBMVL_EXTENT_INDEX *ei, LIBMVL_OFFSET64 count, LIB
 {
 int err;
 ei->partition.count=0;
-mvl_find_repeats(&(ei->partition), count, vec, data);
+mvl_find_repeats(&(ei->partition), count, vec, data, data_length);
 
 ei->hash_map.hash_count=ei->partition.count-1;
 
