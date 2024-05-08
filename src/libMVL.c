@@ -465,11 +465,12 @@ if(byte_length>0)mvl_rewrite(ctx, base_offset+elt_size*idx+sizeof(ctx->tmp_vh), 
  *   @param indices array of indices into vector vec
  *   @param vec a pointer to fully formed MVL vector, such as from mapped MVL file
  *   @param data  pointer to data of previously mapped MVL library
+ *   @param data_length  length of data of previously mapped MVL library
  *   @param metadata an optional offset to previously written metadata. Specify LIBMVL_NO_METADATA if not needed
  *   @param max_buffer maximum size of buffer to hold in-flight data. Recommend to set to at least 10MB for efficiency.
  *   @return an offset into the file, suitable for adding to MVL file directory, or to other MVL objects
  */
-LIBMVL_OFFSET64 mvl_indexed_copy_vector(LIBMVL_CONTEXT *ctx, LIBMVL_OFFSET64 index_count, const LIBMVL_OFFSET64 *indices, const LIBMVL_VECTOR *vec, const void *data, LIBMVL_OFFSET64 metadata, LIBMVL_OFFSET64 max_buffer)
+LIBMVL_OFFSET64 mvl_indexed_copy_vector(LIBMVL_CONTEXT *ctx, LIBMVL_OFFSET64 index_count, const LIBMVL_OFFSET64 *indices, const LIBMVL_VECTOR *vec, const void *data, LIBMVL_OFFSET64 data_length, LIBMVL_OFFSET64 metadata, LIBMVL_OFFSET64 max_buffer)
 {
 LIBMVL_OFFSET64 char_length, vec_length, i, m, k, i_start, char_start, char_buf_length, vec_buf_length, N;
 LIBMVL_OFFSET64 offset, char_offset;
@@ -481,6 +482,10 @@ switch(mvl_vector_type(vec)) {
 		vec_length=index_count+1;
 		char_length=0;
 		for(i=0;i<index_count;i++) {
+			if(mvl_packed_list_validate_entry(vec, data, data_length, indices[i])) {
+				mvl_set_error(ctx, LIBMVL_ERR_CORRUPT_PACKED_LIST);
+				return 0;
+				}
 			char_length+=mvl_packed_list_get_entry_bytelength(vec, indices[i]);
 			}
 		break;
@@ -1871,6 +1876,7 @@ return 0;
  * @param vec_count the number of LIBMVL_VECTORS considered as columns in a table
  * @param vec an array of pointers to LIBMVL_VECTORS considered as columns in a table
  * @param vec_data an array of pointers to memory mapped areas those LIBMVL_VECTORs derive from. This allows computing hash from vectors drawn from different MVL files
+ * @param vec_data_length an array of lengths of memory mapped areas those LIBMVL_VECTORs derive from. 
  * @param flags flags specifying whether to initialize or finalize hash
  */
 int mvl_hash_indices(LIBMVL_OFFSET64 indices_count, const LIBMVL_OFFSET64 *indices, LIBMVL_OFFSET64 *hash, LIBMVL_OFFSET64 vec_count, LIBMVL_VECTOR **vec, void **vec_data, LIBMVL_OFFSET64 *vec_data_length, int flags)
@@ -1972,6 +1978,7 @@ return 0;
  * @param vec_count the number of LIBMVL_VECTORS considered as columns in a table
  * @param vec an array of pointers to LIBMVL_VECTORS considered as columns in a table
  * @param vec_data an array of pointers to memory mapped areas those LIBMVL_VECTORs derive from. This allows computing hash from vectors drawn from different MVL files
+ * @param vec_data_length an array of pointers to memory mapped areas those LIBMVL_VECTORs derive from.
  * @param flags flags specifying whether to initialize or finalize hash
  */
 int mvl_hash_range(LIBMVL_OFFSET64 i0, LIBMVL_OFFSET64 i1, LIBMVL_OFFSET64 *hash, LIBMVL_OFFSET64 vec_count, LIBMVL_VECTOR **vec, void **vec_data, LIBMVL_OFFSET64 *vec_data_length, int flags)
