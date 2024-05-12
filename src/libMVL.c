@@ -1428,6 +1428,8 @@ switch(pa->type) {
 			}
 
 		ctx->directory=mvl_read_named_list(ctx, data, length, pa->directory);
+		if(ctx->directory==NULL)
+			ctx->directory=mvl_create_named_list(100);
 		break;
 #ifdef MVL_OLD_DIRECTORY
 	case LIBMVL_VECTOR_POSTAMBLE1:
