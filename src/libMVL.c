@@ -1431,7 +1431,7 @@ switch(pa->type) {
 		if(ctx->directory==NULL)
 			ctx->directory=mvl_create_named_list(100);
 		break;
-#ifdef MVL_OLD_DIRECTORY
+#ifdef MVL_READ_OLD_DIRECTORY
 	case LIBMVL_VECTOR_POSTAMBLE1:
 		dir=(LIBMVL_VECTOR *)&(((unsigned char *)data)[pa->directory]);
 		k=dir->header.length>>1;
