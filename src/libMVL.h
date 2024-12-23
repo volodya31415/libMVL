@@ -60,6 +60,7 @@ extern "C" {
 #define LIBMVL_VECTOR_CSTRING	101    
 
 #define LIBMVL_PACKED_LIST64 	102     
+#define LIBMVL_VECTOR_CHECKSUM 	103
 
 
 #define LIBMVL_VECTOR_POSTAMBLE1 1000		/* Old format using DIRECTORY_ENTRY */
@@ -121,6 +122,27 @@ typedef struct {
 	int reserved[11];
 	LIBMVL_OFFSET64 metadata;
 	} LIBMVL_VECTOR_HEADER;
+
+
+/*!
+ *  @def LIBMVL_CHECKSUM_ALGORITHM_INTERNAL1_HASH64
+ * 	Checksum algorithm based on fast LIBMVL 64-bit hash function
+ */	
+#define LIBMVL_CHECKSUM_ALGORITHM_INTERNAL1_HASH64	1
+
+
+/*! @brief This structure describes the header of MVL checksum vector. 
+ */
+typedef struct {
+	LIBMVL_OFFSET64 length;
+	int type;
+	int checksum_algorithm;
+	LIBMVL_OFFSET64 checksum_area_start;
+	LIBMVL_OFFSET64 checksum_area_stop;
+	LIBMVL_OFFSET64 checksum_block_size;
+	int reserved[4];
+	LIBMVL_OFFSET64 metadata;
+	} LIBMVL_CHECKSUM_VECTOR_HEADER;
 	
 #ifndef MVL_STATIC_MEMBERS
 	
@@ -267,6 +289,11 @@ typedef struct {
 #define LIBMVL_ERR_INVALID_LENGTH	-17
 #define LIBMVL_ERR_INVALID_EXTENT_INDEX	-18
 #define LIBMVL_ERR_CORRUPT_PACKED_LIST	-19
+#define LIBMVL_ERR_UNALIGNED_POINTER	-20
+#define LIBMVL_ERR_UNALIGNED_OFFSET	-21
+#define LIBMVL_ERR_INVALID_HEADER	-22
+#define LIBMVL_ERR_UNKNOWN_CHECKSUM_ALGORITHM	-23
+#define LIBMVL_ERR_CHECKSUM_FAILED	-24
 	
 LIBMVL_CONTEXT *mvl_create_context(void);
 void mvl_free_context(LIBMVL_CONTEXT *ctx);
@@ -311,6 +338,18 @@ LIBMVL_OFFSET64 mvl_write_cached_string(LIBMVL_CONTEXT *ctx, long length, const 
  * str_size can be either NULL or provide string length, some of which can be -1 
  */
 LIBMVL_OFFSET64 mvl_write_packed_list(LIBMVL_CONTEXT *ctx, long count, const long *str_size, unsigned char **str, LIBMVL_OFFSET64 metadata);
+
+/* Compute and write checksum vector */
+LIBMVL_OFFSET64 mvl_write_hash64_checksum_vector(LIBMVL_CONTEXT *ctx, void *base, LIBMVL_OFFSET64 checksum_area_start, LIBMVL_OFFSET64 checksum_area_stop, LIBMVL_OFFSET64 checksum_block_size);
+
+/* Verify checksum for a given mapped area, could be just a portion of LIBMVL_VECTOR */
+int mvl_verify_checksum_vector(LIBMVL_CONTEXT *ctx, const LIBMVL_VECTOR *checksum_vector, void *data, LIBMVL_OFFSET64 data_size, LIBMVL_OFFSET64 start, LIBMVL_OFFSET64 stop);
+/* Verify all area covered by checksums */
+int mvl_verify_full_checksum_vector(LIBMVL_CONTEXT *ctx, const LIBMVL_VECTOR *checksum_vector, void *data, LIBMVL_OFFSET64 data_size);
+/* Verify a single LIBMVL_VECTOR */
+int mvl_verify_checksum_vector2(LIBMVL_CONTEXT *ctx, const LIBMVL_VECTOR *checksum_vector, void *data, LIBMVL_OFFSET64 data_size, LIBMVL_OFFSET64 vector_offset);
+/* Verify checksum for a given mapped area between pointers */
+int mvl_verify_checksum_vector3(LIBMVL_CONTEXT *ctx, const LIBMVL_VECTOR *checksum_vector, void *data, LIBMVL_OFFSET64 data_size, void *start, void * stop); 
 
 /* This is convenient for writing several values of the same type as vector without allocating a temporary array.
  * This function creates the array internally using alloca().
