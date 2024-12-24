@@ -66,7 +66,7 @@ if(data==MAP_FAILED) {
 	exit(-1);
 	}
 
-mvl_add_directory_entry(ctx, mvl_write_hash64_checksum_vector(ctx, data, 0, length, 65536), "MVL_FULL_CHECKSUM");
+mvl_add_directory_entry(ctx, mvl_write_hash64_checksum_vector(ctx, data, 0, length, 65536), "MVL_FULL_CHECKSUMS");
 
 mvl_close(ctx);
 mvl_free_context(ctx);

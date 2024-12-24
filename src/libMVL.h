@@ -85,6 +85,7 @@ switch(type) {
 	case LIBMVL_VECTOR_OFFSET64:
 	case LIBMVL_VECTOR_DOUBLE:
 	case LIBMVL_PACKED_LIST64:
+	case LIBMVL_VECTOR_CHECKSUM:
 		return 8;
 	default:
 		return(0);
@@ -495,12 +496,13 @@ return((mvl_vector_type(vec0)==LIBMVL_PACKED_LIST64) ? N-1 : N);
  */
 static inline int mvl_validate_vector(LIBMVL_OFFSET64 offset, const void *data, LIBMVL_OFFSET64 data_size) {
 LIBMVL_VECTOR *vec;
+int element_size;
 if(offset+sizeof(LIBMVL_VECTOR_HEADER)>data_size)return(LIBMVL_ERR_INVALID_OFFSET);
 vec=(LIBMVL_VECTOR *)&(((unsigned char *)data)[offset]);
 
-if(!mvl_element_size(mvl_vector_type(vec)))return LIBMVL_ERR_UNKNOWN_TYPE;
+if(!(element_size=mvl_element_size(mvl_vector_type(vec))))return LIBMVL_ERR_UNKNOWN_TYPE;
 
-if(offset+sizeof(LIBMVL_VECTOR_HEADER)+mvl_vector_length(vec)>data_size)return(LIBMVL_ERR_INVALID_LENGTH);
+if(offset+sizeof(LIBMVL_VECTOR_HEADER)+mvl_vector_length(vec)*element_size>data_size)return(LIBMVL_ERR_INVALID_LENGTH);
 
 if(mvl_vector_type(vec)==LIBMVL_PACKED_LIST64) {
 	/* We check the first and last pointer of the packed list, as checking all the entries is inefficient

@@ -11,7 +11,7 @@ FILE *fin;
 long i;
 LIBMVL_CONTEXT *ctx;
 LIBMVL_NAMED_LIST *L;
-LIBMVL_OFFSET64 length, offset_ad, offset_ac, offset_checksum;
+LIBMVL_OFFSET64 length, offset_ad, offset_ac, offset_checksums;
 LIBMVL_VECTOR *vec_ad, *vec_ac;
 
 
@@ -38,13 +38,13 @@ fin=NULL;
 ctx=mvl_create_context();
 mvl_load_image(ctx, data, length);
 
-offset_checksum=mvl_find_directory_entry(ctx, "MVL_FULL_CHECKSUM");
-if(offset_checksum==LIBMVL_NULL_OFFSET) {
+offset_checksums=mvl_find_directory_entry(ctx, "MVL_FULL_CHECKSUMS");
+if(offset_checksums==LIBMVL_NULL_OFFSET) {
 	fprintf(stderr, "Checksum not found\n");
 	exit(-1);
 	}
 	
-if(mvl_verify_full_checksum_vector(ctx, (LIBMVL_VECTOR *)&(data[offset_checksum]), data, length)) {
+if(mvl_verify_full_checksum_vector(ctx, (LIBMVL_VECTOR *)&(data[offset_checksums]), data, length)) {
 	fprintf(stderr, "Error verifying full checksums: %s\n", mvl_strerror(ctx));
 	exit(-1);
 	}
@@ -58,7 +58,7 @@ if(offset_ad==LIBMVL_NULL_OFFSET) {
 	}
 
 /* Example how to verify single vector, if the file is too large to verify fully */
-if(mvl_verify_checksum_vector2(ctx, (LIBMVL_VECTOR *)&(data[offset_checksum]), data, length, offset_ad)) {
+if(mvl_verify_checksum_vector2(ctx, (LIBMVL_VECTOR *)&(data[offset_checksums]), data, length, offset_ad)) {
 	fprintf(stderr, "Error verifying vector checksums: %s\n", mvl_strerror(ctx));
 	exit(-1);
 	}
@@ -66,7 +66,7 @@ if(mvl_verify_checksum_vector2(ctx, (LIBMVL_VECTOR *)&(data[offset_checksum]), d
 vec_ad=(LIBMVL_VECTOR *)&(data[offset_ad]);
 
 /* Example how to verify a portion of a vector if it is too large to verify fully */
-if(mvl_verify_checksum_vector3(ctx, (LIBMVL_VECTOR *)&(data[offset_checksum]), data, length, &(mvl_vector_data(vec_ad).d[100]), &(mvl_vector_data(vec_ad).d[120]))) {
+if(mvl_verify_checksum_vector3(ctx, (LIBMVL_VECTOR *)&(data[offset_checksums]), data, length, &(mvl_vector_data(vec_ad).d[100]), &(mvl_vector_data(vec_ad).d[120]))) {
 	fprintf(stderr, "Error verifying data checksums: %s\n", mvl_strerror(ctx));
 	exit(-1);
 	}
