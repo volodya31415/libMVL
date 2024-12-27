@@ -1771,7 +1771,7 @@ switch(pa->type) {
 	}
 	
 ctx->full_checksums_offset=mvl_find_directory_entry(ctx, LIBMVL_FULL_CHECKSUMS_DIRECTORY_KEY);
-if(err=mvl_validate_vector(ctx->full_checksums_offset, data, length)) {
+if((ctx->full_checksums_offset!=LIBMVL_NULL_OFFSET) && (err=mvl_validate_vector(ctx->full_checksums_offset, data, length))) {
 	mvl_set_error(ctx, err);
 	ctx->full_checksums_offset=LIBMVL_NULL_OFFSET;
 	}
