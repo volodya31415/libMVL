@@ -163,6 +163,8 @@ ctx->directory=mvl_create_named_list(100);
 mvl_recompute_named_list_hash(ctx->directory);
 ctx->directory_offset=-1;
 
+ctx->full_checksums_offset=LIBMVL_NULL_OFFSET;
+
 ctx->character_class_offset=0;
 
 ctx->cached_strings=mvl_create_named_list(32);
@@ -261,6 +263,8 @@ switch(ctx->error) {
 		return("unknown checksum algorithm");
 	case LIBMVL_ERR_CHECKSUM_FAILED:
 		return("checksum did not match, corrupt data likely");
+	case LIBMVL_ERR_NO_CHECKSUMS:
+		return("no checksums found, cannot verify");
 	default:
 		return("unknown error");
 	
@@ -920,7 +924,7 @@ return(offset);
 
 /*! @brief Compute and verify checksums for a given area
  *   @param ctx MVL context pointer that has been initialized for reading
- *   @param checksum_vector pointer to checksum vector
+ *   @param checksum_vector pointer to checksum vector. You can pass NULL to use full checksums.
  *   @param data base address. Usually the base address of memory mapped MVL file. Must be properly aligned. A possible reason for alignment errors is mmap() returning MAP_FAILED.
  *   @param data_size size of data
  *   @param start byte offset of start of area to checksum. Must be greater or equal to the checksum_area_start field of checksum_vector
@@ -929,25 +933,35 @@ return(offset);
  */
 int mvl_verify_checksum_vector(LIBMVL_CONTEXT *ctx, const LIBMVL_VECTOR *checksum_vector, void *data, LIBMVL_OFFSET64 data_size, LIBMVL_OFFSET64 start, LIBMVL_OFFSET64 stop)
 {
-LIBMVL_CHECKSUM_VECTOR_HEADER *hdr=(LIBMVL_CHECKSUM_VECTOR_HEADER *)(checksum_vector);
+LIBMVL_CHECKSUM_VECTOR_HEADER *hdr;
 LIBMVL_OFFSET64 block, buffer_idx, block_stop, hash, start2, stop2;
 unsigned char *base8=(unsigned char *)data;
-LIBMVL_OFFSET64 *buffer=mvl_vector_data_offset(checksum_vector);
+LIBMVL_OFFSET64 *buffer;
 
+if(checksum_vector==NULL) {
+	if(ctx->full_checksums_offset==LIBMVL_NULL_OFFSET) {
+		mvl_set_error(ctx, LIBMVL_ERR_NO_CHECKSUMS);
+		return(-1);
+		}
+	checksum_vector=(LIBMVL_VECTOR *) &(base8[ctx->full_checksums_offset]);
+	}
+
+hdr=(LIBMVL_CHECKSUM_VECTOR_HEADER *)(checksum_vector);
+buffer=mvl_vector_data_offset(checksum_vector);
 
 if(hdr->type!=LIBMVL_VECTOR_CHECKSUM) {
 	mvl_set_error(ctx, LIBMVL_ERR_INVALID_HEADER);
-	return(-1);
+	return(-2);
 	}
 	
 if(hdr->checksum_algorithm!=LIBMVL_CHECKSUM_ALGORITHM_INTERNAL1_HASH64) {
 	mvl_set_error(ctx, LIBMVL_ERR_UNKNOWN_CHECKSUM_ALGORITHM);
-	return(-2);
+	return(-3);
 	}
 
 if(stop<start) {
 	mvl_set_error(ctx, LIBMVL_ERR_INVALID_OFFSET);
-	return(-3);
+	return(-4);
 	}
 
 if(stop==start) {
@@ -957,12 +971,12 @@ if(stop==start) {
 	
 if(start<hdr->checksum_area_start || stop>hdr->checksum_area_stop) {
 	mvl_set_error(ctx, LIBMVL_ERR_INVALID_OFFSET);
-	return(-4);
+	return(-5);
 	}
 	
 if(hdr->length < ((hdr->checksum_area_stop-hdr->checksum_area_start+hdr->checksum_block_size-1) / hdr->checksum_block_size)) {
 	mvl_set_error(ctx, LIBMVL_ERR_INVALID_HEADER);
-	return(-5);
+	return(-6);
 	}
 	
 start2=start-((start-hdr->checksum_area_start) % hdr->checksum_block_size);
@@ -973,7 +987,7 @@ if(stop2>hdr->checksum_area_stop)stop2=hdr->checksum_area_stop;
 
 if(stop2>data_size) {
 	mvl_set_error(ctx, LIBMVL_ERR_INVALID_OFFSET);
-	return(-6);
+	return(-7);
 	}
 
 buffer_idx=(start2-hdr->checksum_area_start) / hdr->checksum_block_size;
@@ -999,14 +1013,25 @@ return(0);
 
 /*! @brief Compute and verify checksums for the entire area covered by checksum vector
  *   @param ctx MVL context pointer that has been initialized for reading
- *   @param checksum_vector pointer to checksum vector
+ *   @param checksum_vector pointer to checksum vector. You can pass NULL to use full checksums.
  *   @param data base address. Usually the base address of memory mapped MVL file. Must be properly aligned. A possible reason for alignment errors is mmap() returning MAP_FAILED.
  *   @param data_size size of data
  *   @return 0 on success, non-zero number if check failed
  */
 int mvl_verify_full_checksum_vector(LIBMVL_CONTEXT *ctx, const LIBMVL_VECTOR *checksum_vector, void *data, LIBMVL_OFFSET64 data_size)
 {
-LIBMVL_CHECKSUM_VECTOR_HEADER *hdr=(LIBMVL_CHECKSUM_VECTOR_HEADER *)(checksum_vector);
+LIBMVL_CHECKSUM_VECTOR_HEADER *hdr;
+unsigned char *base8=(unsigned char *)data;
+
+if(checksum_vector==NULL) {
+	if(ctx->full_checksums_offset==LIBMVL_NULL_OFFSET) {
+		mvl_set_error(ctx, LIBMVL_ERR_NO_CHECKSUMS);
+		return(-1);
+		}
+	checksum_vector=(LIBMVL_VECTOR *) &(base8[ctx->full_checksums_offset]);
+	}
+	
+hdr=(LIBMVL_CHECKSUM_VECTOR_HEADER *)(checksum_vector);
 
 if(hdr->type!=LIBMVL_VECTOR_CHECKSUM) {
 	mvl_set_error(ctx, LIBMVL_ERR_INVALID_HEADER);
@@ -1018,7 +1043,7 @@ return(mvl_verify_checksum_vector(ctx, checksum_vector, data, data_size, hdr->ch
 
 /*! @brief Compute and verify checksums for the entire area occupied by given LIBMVL_VECTOR. Metadata is not checked.
  *   @param ctx MVL context pointer that has been initialized for reading
- *   @param checksum_vector pointer to checksum vector
+ *   @param checksum_vector pointer to checksum vector. You can pass NULL to use full checksums.
  *   @param data base address. Usually the base address of memory mapped MVL file. Must be properly aligned. A possible reason for alignment errors is mmap() returning MAP_FAILED.
  *   @param data_size size of data
  *   @param vector_offset offset from base pointing to valid LIBMVL_VECTOR
@@ -1027,22 +1052,24 @@ return(mvl_verify_checksum_vector(ctx, checksum_vector, data, data_size, hdr->ch
 int mvl_verify_checksum_vector2(LIBMVL_CONTEXT *ctx, const LIBMVL_VECTOR *checksum_vector, void *data, LIBMVL_OFFSET64 data_size, LIBMVL_OFFSET64 vector_offset)
 {
 int err;
-LIBMVL_CHECKSUM_VECTOR_HEADER *hdr=(LIBMVL_CHECKSUM_VECTOR_HEADER *)(checksum_vector);
 LIBMVL_OFFSET64 byte_length;
 LIBMVL_VECTOR_HEADER *vec;
 char *data8=(char *)data;
 int element_size;
 int a;
 
-if(hdr->type!=LIBMVL_VECTOR_CHECKSUM) {
-	mvl_set_error(ctx, LIBMVL_ERR_INVALID_HEADER);
-	return(-1);
-	}
-	
 if(err=mvl_validate_vector(vector_offset, data, data_size)) {
 	mvl_set_error(ctx, err);
 	return(-50);
 	}
+	
+if(checksum_vector==NULL) {
+	if(ctx->full_checksums_offset==LIBMVL_NULL_OFFSET) {
+		mvl_set_error(ctx, LIBMVL_ERR_NO_CHECKSUMS);
+		return(-1);
+		}
+	checksum_vector=(LIBMVL_VECTOR *) &(data8[ctx->full_checksums_offset]);
+	}	
 
 vec=(LIBMVL_VECTOR_HEADER *)&(data8[vector_offset]);
 
@@ -1064,7 +1091,7 @@ return(0);
 
 /*! @brief Compute and verify checksums for a given area. It works just like mvl_verify_checksum_vector() but takes pointers instead of offsets
  *   @param ctx MVL context pointer that has been initialized for reading
- *   @param checksum_vector pointer to checksum vector
+ *   @param checksum_vector pointer to checksum vector. You can pass NULL to use full checksums.
  *   @param data base address. Usually the base address of memory mapped MVL file. Must be properly aligned. A possible reason for alignment errors is mmap() returning MAP_FAILED.
  *   @param data_size size of data
  *   @param start pointer to start of area to checksum. 
@@ -1741,6 +1768,12 @@ switch(pa->type) {
 		ctx->directory=mvl_create_named_list(100);
 		mvl_set_error(ctx, LIBMVL_ERR_CORRUPT_POSTAMBLE);
 		return;
+	}
+	
+ctx->full_checksums_offset=mvl_find_directory_entry(ctx, LIBMVL_FULL_CHECKSUMS_DIRECTORY_KEY);
+if(err=mvl_validate_vector(ctx->full_checksums_offset, data, length)) {
+	mvl_set_error(ctx, err);
+	ctx->full_checksums_offset=LIBMVL_NULL_OFFSET;
 	}
 }
 

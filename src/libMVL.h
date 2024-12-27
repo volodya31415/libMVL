@@ -132,6 +132,13 @@ typedef struct {
 #define LIBMVL_CHECKSUM_ALGORITHM_INTERNAL1_HASH64	1
 
 
+/*!
+ *  @def LIBMVL_FULL_CHECKSUMS_DIRECTORY_KEY
+ * 	The directory entry with this name is interpreted as providing full checksums for MVL file.
+ */	
+#define LIBMVL_FULL_CHECKSUMS_DIRECTORY_KEY "MVL_FULL_CHECKSUMS"
+
+
 /*! @brief This structure describes the header of MVL checksum vector. 
  */
 typedef struct {
@@ -251,6 +258,7 @@ typedef struct {
 
 	LIBMVL_NAMED_LIST *directory;	
 	LIBMVL_OFFSET64 directory_offset;
+	LIBMVL_OFFSET64 full_checksums_offset;
 
 	LIBMVL_NAMED_LIST *cached_strings;
 	
@@ -295,6 +303,7 @@ typedef struct {
 #define LIBMVL_ERR_INVALID_HEADER	-22
 #define LIBMVL_ERR_UNKNOWN_CHECKSUM_ALGORITHM	-23
 #define LIBMVL_ERR_CHECKSUM_FAILED	-24
+#define LIBMVL_ERR_NO_CHECKSUMS		-25
 	
 LIBMVL_CONTEXT *mvl_create_context(void);
 void mvl_free_context(LIBMVL_CONTEXT *ctx);
