@@ -877,7 +877,7 @@ if((checksum_area_start & 0x7) || (checksum_block_size & 0x7) || (checksum_area_
 	return(LIBMVL_NULL_OFFSET);
 	}
 	
-memset(hdr, 0, sizeof(hdr));
+memset(hdr, 0, sizeof(*hdr));
 hdr->type=LIBMVL_VECTOR_CHECKSUM;
 hdr->checksum_algorithm=LIBMVL_CHECKSUM_ALGORITHM_INTERNAL1_HASH64;
 hdr->checksum_area_start=checksum_area_start;
