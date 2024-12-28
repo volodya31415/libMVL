@@ -267,6 +267,8 @@ switch(ctx->error) {
 		return("checksum did not match, corrupt data likely");
 	case LIBMVL_ERR_NO_CHECKSUMS:
 		return("no checksums found, cannot verify");
+	case LIBMVL_ERR_NO_DATA:
+		return("data is NULL and mvl_load_image() has not been called on MVL context");
 	default:
 		return("unknown error");
 	
