@@ -1111,7 +1111,7 @@ if(data==NULL) {
 	
 data8=(char *)data;
 
-if(err=mvl_validate_vector(vector_offset, data, data_size)) {
+if((err=mvl_validate_vector(vector_offset, data, data_size))!=0) {
 	mvl_set_error(ctx, err);
 	return(-50);
 	}
