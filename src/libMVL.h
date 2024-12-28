@@ -279,6 +279,17 @@ typedef struct {
 	
 	} LIBMVL_CONTEXT;
 	
+/*! \def MVL_CONTEXT_DATA
+ *   Returns pointer to in-memory image of MVL file loaded with mvl_load_image()
+ */
+#define MVL_CONTEXT_DATA(ctx) (ctx->data)
+
+/*! \def MVL_CONTEXT_DATA_SIZE
+ *   Returns size of in-memory image of MVL file loaded with mvl_load_image()
+ */
+#define MVL_CONTEXT_DATA_SIZE(ctx) (ctx->data_size)
+
+
 #define LIBMVL_CTX_FLAG_HAVE_POSIX_FALLOCATE	 (1<<0)
 #define LIBMVL_CTX_FLAG_HAVE_FTELLO	 	 (1<<1)
 	
@@ -536,6 +547,14 @@ if(mvl_vector_type(vec)==LIBMVL_PACKED_LIST64) {
 	}
 
 return(0);
+}
+
+/*! @brief A convenience version of mvl_validate_vector() that uses data and data_size from MVL context. This function returns 0 if the offset into data points to a valid vector, or a negative error code otherwise. 
+ *  @param ctx  MVL context pointer
+ *  @param offset an offset into memory mapped data where the LIBMVL_VECTOR is located
+ */
+static inline int mvl_validate_vector2(LIBMVL_CONTEXT *ctx, LIBMVL_OFFSET64 offset) {
+return(mvl_validate_vector(offset, MVL_CONTEXT_DATA(ctx), MVL_CONTEXT_DATA_SIZE(ctx)));
 }
 
 /*! @brief A convenience function to convert an offset into memory mapped data into a pointer to LIBMVL_VECTOR structure.
@@ -806,17 +825,6 @@ LIBMVL_OFFSET64 mvl_find_directory_entry(LIBMVL_CONTEXT *ctx, const char *tag);
  * the image could have been loaded via fread, or memory mapped
  */
 void mvl_load_image(LIBMVL_CONTEXT *ctx, const void *data, LIBMVL_OFFSET64 length);
-
-/*! \def MVL_CONTEXT_DATA
- *   Returns pointer to in-memory image of MVL file loaded with mvl_load_image()
- */
-#define MVL_CONTEXT_DATA(ctx) (ctx->data)
-
-/*! \def MVL_CONTEXT_DATA_SIZE
- *   Returns size of in-memory image of MVL file loaded with mvl_load_image()
- */
-#define MVL_CONTEXT_DATA_SIZE(ctx) (ctx->data_size)
-
 
 /*! @def LIBMVL_SORT_LEXICOGRAPHIC
  *  Sort in ascending order
