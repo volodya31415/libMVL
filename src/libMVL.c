@@ -1007,7 +1007,9 @@ if(hdr->length < ((hdr->checksum_area_stop-hdr->checksum_area_start+hdr->checksu
 start2=start-((start-hdr->checksum_area_start) % hdr->checksum_block_size);
 
 block=(stop-hdr->checksum_area_start) % hdr->checksum_block_size;
-if(block>0)stop2=stop+hdr->checksum_block_size-block;
+stop2=stop;
+if(block>0)stop2+=hdr->checksum_block_size-block;
+
 if(stop2>hdr->checksum_area_stop)stop2=hdr->checksum_area_stop;
 
 if(stop2>data_size) {
@@ -1128,6 +1130,8 @@ if(!element_size) {
 	mvl_set_error(ctx, LIBMVL_ERR_UNKNOWN_TYPE);
 	return(-51);
 	}
+
+byte_length=element_size*mvl_vector_length(vec);
 	
 if((a=mvl_verify_checksum_vector(ctx, checksum_vector, data, data_size, vector_offset, vector_offset+byte_length+sizeof(*vec))))return(a);
 
