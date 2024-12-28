@@ -38,12 +38,12 @@ fin=NULL;
 ctx=mvl_create_context();
 mvl_load_image(ctx, data, length);
 	
-if(mvl_verify_full_checksum_vector(ctx, NULL, data, length)) {
+if(mvl_verify_full_checksum_vector(ctx, NULL, NULL, 0)) {
 	fprintf(stderr, "Error verifying full checksums: %s\n", mvl_strerror(ctx));
 	exit(-1);
 	}
 
-L=mvl_read_named_list(ctx, data, length, mvl_find_directory_entry(ctx, "df"));
+L=mvl_read_named_list(ctx, NULL, 0, mvl_find_directory_entry(ctx, "df"));
 
 offset_ad=mvl_find_list_entry(L, -1, "ad");
 if(offset_ad==LIBMVL_NULL_OFFSET) {
@@ -52,7 +52,7 @@ if(offset_ad==LIBMVL_NULL_OFFSET) {
 	}
 
 /* Example how to verify single vector, if the file is too large to verify fully */
-if(mvl_verify_checksum_vector2(ctx, NULL, data, length, offset_ad)) {
+if(mvl_verify_checksum_vector2(ctx, NULL, NULL, 0, offset_ad)) {
 	fprintf(stderr, "Error verifying vector checksums: %s\n", mvl_strerror(ctx));
 	exit(-1);
 	}
@@ -60,7 +60,7 @@ if(mvl_verify_checksum_vector2(ctx, NULL, data, length, offset_ad)) {
 vec_ad=(LIBMVL_VECTOR *)&(data[offset_ad]);
 
 /* Example how to verify a portion of a vector if it is too large to verify fully */
-if(mvl_verify_checksum_vector3(ctx, NULL, data, length, &(mvl_vector_data(vec_ad).d[100]), &(mvl_vector_data(vec_ad).d[120]))) {
+if(mvl_verify_checksum_vector3(ctx, NULL, NULL, 0, &(mvl_vector_data(vec_ad).d[100]), &(mvl_vector_data(vec_ad).d[120]))) {
 	fprintf(stderr, "Error verifying data checksums: %s\n", mvl_strerror(ctx));
 	exit(-1);
 	}

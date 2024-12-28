@@ -266,6 +266,9 @@ typedef struct {
 	
 	FILE *f;
 	
+	unsigned char *data;
+	LIBMVL_OFFSET64 data_size;
+	
 	
 	LIBMVL_PREAMBLE tmp_preamble;
 	LIBMVL_POSTAMBLE tmp_postamble;
@@ -304,7 +307,8 @@ typedef struct {
 #define LIBMVL_ERR_UNKNOWN_CHECKSUM_ALGORITHM	-23
 #define LIBMVL_ERR_CHECKSUM_FAILED	-24
 #define LIBMVL_ERR_NO_CHECKSUMS		-25
-	
+#define LIBMVL_ERR_NO_DATA		-26
+
 LIBMVL_CONTEXT *mvl_create_context(void);
 void mvl_free_context(LIBMVL_CONTEXT *ctx);
 
@@ -802,6 +806,16 @@ LIBMVL_OFFSET64 mvl_find_directory_entry(LIBMVL_CONTEXT *ctx, const char *tag);
  * the image could have been loaded via fread, or memory mapped
  */
 void mvl_load_image(LIBMVL_CONTEXT *ctx, const void *data, LIBMVL_OFFSET64 length);
+
+/*! \def MVL_CONTEXT_DATA
+ *   Returns pointer to in-memory image of MVL file loaded with mvl_load_image()
+ */
+#define MVL_CONTEXT_DATA(ctx) (ctx->data)
+
+/*! \def MVL_CONTEXT_DATA_SIZE
+ *   Returns size of in-memory image of MVL file loaded with mvl_load_image()
+ */
+#define MVL_CONTEXT_DATA_SIZE(ctx) (ctx->data_size)
 
 
 /*! @def LIBMVL_SORT_LEXICOGRAPHIC
