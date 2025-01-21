@@ -319,9 +319,29 @@ typedef struct {
 #define LIBMVL_ERR_CHECKSUM_FAILED	-24
 #define LIBMVL_ERR_NO_CHECKSUMS		-25
 #define LIBMVL_ERR_NO_DATA		-26
+#define LIBMVL_ERR_MVL_FILE_TOO_SHORT	-27
 
 LIBMVL_CONTEXT *mvl_create_context(void);
 void mvl_free_context(LIBMVL_CONTEXT *ctx);
+
+
+/*! @brief Obtain integer error code
+ *  @param ctx pointer to context previously allocated with mvl_create_context()
+ *  @return integer error code
+ */
+static inline int mvl_get_error(LIBMVL_CONTEXT *ctx)
+{
+return ctx->error;
+}
+
+/*! @brief Clear error code
+ *  @param ctx pointer to context previously allocated with mvl_create_context()
+ *  @return none
+ */
+static inline void mvl_clear_error(LIBMVL_CONTEXT *ctx)
+{
+ctx->error=0;
+}
 
 const char * mvl_strerror(LIBMVL_CONTEXT *ctx);
 

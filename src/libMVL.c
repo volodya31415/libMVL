@@ -269,6 +269,8 @@ switch(ctx->error) {
 		return("no checksums found, cannot verify");
 	case LIBMVL_ERR_NO_DATA:
 		return("data is NULL and mvl_load_image() has not been called on MVL context");
+	case LIBMVL_ERR_MVL_FILE_TOO_SHORT:
+		return("MVL file length is too short, indicating a corrupt or wrong file");
 	default:
 		return("unknown error");
 	
@@ -1798,6 +1800,11 @@ if(strncmp(pr->signature, LIBMVL_SIGNATURE, 4)) {
 
 if(pr->endianness!=LIBMVL_ENDIANNESS_FLAG) {
 	mvl_set_error(ctx, LIBMVL_ERR_WRONG_ENDIANNESS);
+	return;
+	}
+	
+if(length<sizeof(LIBMVL_POSTAMBLE)+sizeof(LIBMVL_PREAMBLE)) {
+	mvl_set_error(ctx, LIBMVL_ERR_MVL_FILE_TOO_SHORT);
 	return;
 	}
 
