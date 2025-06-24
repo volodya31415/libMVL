@@ -1,0 +1,15 @@
+prefix=@prefix@
+exec_prefix=@exec_prefix@
+libdir=@libdir@
+includedir=@includedir@
+datarootdir=@datarootdir@
+mandir=@mandir@
+
+Name: libMVL
+Description: A Mappable vector library, use all of your data at once, with few limits.
+URL: https://github.com/volodya31415/libMVL
+Version: @VERSION@
+Requires:
+Libs: -L${libdir} -lMVL
+Cflags: -I${includedir}
+
