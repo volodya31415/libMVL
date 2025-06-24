@@ -1,0 +1,50 @@
+.TH MVL 3 "2025-Jun-23"
+.SH NAME
+libMVL \- Mappable Vector Library, use your data all at once, with few limits.
+.SH SYNOPSIS
+.B #include <libMVL.h>
+and then compile and link with
+.B -lMVL
+.br
+.SH DESCRIPTION
+.B MVL
+Mappable Vector Library, is a data format designed for ease of use when
+memory mapped.
+
+This is achieved by basing the format around the notion of vectors, linear
+arrays of primitive data types, such as char, integer, float or offset.
+
+The arrays are written so that they are aligned to the start of the file
+(default alignment is 64 bytes). This facilitates vector operations.
+
+A MVL file consists of a preamble, followed by a number of MVL vectors
+and then a postamble that closes the file.
+
+Despite simplicity of layout one can store data of arbitrary complexity by
+using MVL vectors of offset type that act as lists.
+
+In addition, any of the basic integer types can be used as an opaque type
+to store arbitrary data, such as compressed streams or arrays of structures.
+
+The format is fully 64-bit, and MVL vectors can have lengths of up to 2^62
+(essentially only limited by the amount of storage available).
+
+.I libMVL.h
+has technical information on how to connect with
+.I libMVL
+and further information and example code can be found at
+.I https://github.com/volodya31415/libMVL
+.SH REPORTING PROBLEMS
+Before reporting a problem, please check the libMVL web
+site to verify that you have the latest version of
+.I libMVL
+
+.SH LIBMVL LICENSE
+.B libMVL
+is Copyright (C) 2019 Vladimir Dergachev. GNU LGPL version 2.1 or higher.
+
+.SH AUTHORS
+Vladimir Dergachev
+
+Further details (on why and what) can also be seen in git history
+as well as the README file.
