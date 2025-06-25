@@ -112,6 +112,33 @@ if test x"${have_libm}" != xyes; then
 fi
 
 #-------------------------------------------
+# auto-run doxygen if it's available or else
+# enable/disable build and install manually.
+run_doxygen=no
+AC_ARG_ENABLE([docs],
+  AS_HELP_STRING([--enable-docs],[Build and install libMVL documentation [default=auto]]),
+    [case "${enableval}" in
+     true)  ac_enable_docs=yes ;;
+     false) ac_enable_docs=no  ;;
+     yes)   ac_enable_docs=yes ;;
+     no)    ac_enable_docs=no  ;;
+     *) AC_MSG_ERROR([ERROR: Bad value ${enableval} for --enable-docs]) ;;
+     esac],[ac_enable_docs=auto])
+if test "x$ac_enable_docs" != "xno"; then
+  AC_PATH_PROG([DOXYGEN],[doxygen],[:])
+  if test "x$DOXYGEN" = "x:" -a "x$ac_enable_docs" = "xyes"; then
+    AC_MSG_ERROR([ERROR: Documentation requires Doxygen. Please install Doxygen and try again.])
+  else
+    run_doxygen=yes
+    AC_MSG_NOTICE([libMVL Documentation will be generated and installed.])
+  fi
+else
+  run_doxygen=no
+  AC_MSG_NOTICE([libMVL documentation will not be generated or installed.])
+fi
+AM_CONDITIONAL([HAVE_DOXYGEN],[test "x$run_doxygen" = "xyes"])
+
+#-------------------------------------------
 # Pass some MVL.c definitions
 AC_DEFINE([MVL_VERSION_MJ],[MVL_major_version],[package version major value])
 AC_DEFINE([MVL_VERSION_MN],[MVL_minor_version],[package version minor value])
@@ -132,6 +159,7 @@ AC_SUBST([LIBMVL_VERSION],[MVL_libver])
 AC_CONFIG_FILES([
 Makefile
 src/Makefile
+docs/Makefile
 libMVL.pc
 ])
 
@@ -144,7 +172,8 @@ Configuration:
   Build code location	${builddir}
   Destination prefix	${prefix}
   Library Destination	${libdir}
-  Compiler		${CC} ${CXX}
+  Make and install docs	${run_doxygen}
+  Compilers		${CC} ${CXX}
   Config CFLAGS		"${CFLAGS}"
   Config LDFLAGS	"${LDFLAGS}"
 

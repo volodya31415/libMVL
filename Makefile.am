@@ -1,11 +1,11 @@
 # Makefile.am - Top level automakefile
 
-SUBDIRS = . src
+SUBDIRS = . src docs
 
 pkgconfigdir = $(libdir)/pkgconfig
 pkgconfig_DATA = libMVL.pc
 
-man_MANS = docs/libMVL.3
+man_MANS = $(top_srcdir)/docs/libMVL.3
 
 libtool: $(LIBTOOL_DEPS)
 	$(SHELL) ./config.status libtool
