@@ -10,6 +10,9 @@ man_MANS = $(top_srcdir)/docs/libMVL.3
 libtool: $(LIBTOOL_DEPS)
 	$(SHELL) ./config.status libtool
 
+strip:
+	$(STRIP) $(top_builddir)/src/.libs/libMVL.*
+
 test_programs = example1 example3 example4 example5
 
 DISTCLEANFILES = libMVL.pc
