@@ -15,6 +15,6 @@ test_programs = example1 example3 example4 example5
 DISTCLEANFILES = libMVL.pc
 DISTCHECK_CONFIGURE_FLAGS = --disable-silent-rules
 
-EXTRA_DIST = README.md $(man_MANS)
+EXTRA_DIST = AUTHORS README.md $(man_MANS)
 nodist_EXTRA_DATA = .git .github
 

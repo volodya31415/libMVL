@@ -14,6 +14,7 @@ install-data-local:
 	$(INSTALL) -d $(DESTDIR)$(htmldocdir)
 	$(INSTALL) -d $(DESTDIR)$(htmldocdir)/search
 	$(INSTALL) -d $(DESTDIR)$(latexdocdir)
+	$(INSTALL_DATA) -p $(top_srcdir)/AUTHORS $(DESTDIR)$(pkgdocdir)
 	$(INSTALL_DATA) -p $(top_srcdir)/COPYING $(DESTDIR)$(pkgdocdir)
 	$(INSTALL_DATA) -p $(top_srcdir)/README.md $(DESTDIR)$(pkgdocdir)
 	$(INSTALL_DATA) -p -t $(DESTDIR)$(examplesdocdir) $(top_srcdir)/examples/*.c $(top_srcdir)/examples/*.R
