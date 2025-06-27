@@ -112,6 +112,26 @@ if test x"${have_libm}" != xyes; then
 fi
 
 #-------------------------------------------
+# Default using threading if it's available.
+# We need header and lib function locations.
+have_pthreads=no
+have_pthreads64=no
+AC_CHECK_HEADER([pthread.h],
+  AC_CHECK_FUNC([posix_fallocate64],[have_pthreads64=yes],
+    AC_CHECK_FUNC([posix_fallocate],[have_pthreads=yes])))
+dnl make this info available in config file.
+if test x"${have_pthreads64}" = xyes; then
+  AC_DEFINE(HAVE_PTHREADS64,[1],[Have pthreads.h available.])
+  AC_SEARCH_LIBS([posix_fallocate64],[c])
+  have_pthreads=yes
+fi
+if test x"${have_pthreads}" = xyes; then
+  AC_DEFINE(HAVE_PTHREADS,[1],[Have pthreads.h available.])
+  AC_SEARCH_LIBS([posix_fallocate],[c])
+fi
+AM_CONDITIONAL([HAVEPTHREADS],[test x$have_pthreads = xyes])
+
+#-------------------------------------------
 # auto-run doxygen if it's available or else
 # enable/disable build and install manually.
 run_doxygen=no
@@ -174,6 +194,7 @@ Configuration:
   Destination prefix	${prefix}
   Library Destination	${libdir}
   Make and install docs	${run_doxygen}
+  Have Posix threads	${have_pthreads}
   Compilers		${CC} ${CXX}
   Config CFLAGS		"${CFLAGS}"
   Config LDFLAGS	"${LDFLAGS}"
