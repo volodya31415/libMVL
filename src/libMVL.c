@@ -523,8 +523,8 @@ offset=mvl_start_write_vector(ctx, mvl_vector_type(vec), vec_length, 0, NULL, me
 
 if(mvl_vector_type(vec)==LIBMVL_PACKED_LIST64) {
 	char_buf_length=char_length;
+	if(char_buf_length>max_buffer)char_buf_length=max_buffer;
 	if(char_buf_length<100)char_buf_length=100;
-	else if(char_buf_length>max_buffer)char_buf_length=max_buffer;
 	char_buffer=do_malloc(char_buf_length, 1);
 	char_offset=mvl_start_write_vector(ctx, LIBMVL_VECTOR_UINT8, char_length, 0, NULL, LIBMVL_NO_METADATA);
 	i=char_offset+sizeof(LIBMVL_VECTOR_HEADER);
@@ -862,11 +862,14 @@ unsigned char *zeros;
 
 if(data==NULL) {
 	data=ctx->data;
+
 	if(data==NULL) {
 		mvl_set_error(ctx, LIBMVL_ERR_NO_DATA);
 		return(LIBMVL_NULL_OFFSET);
 		}
 	}
+
+data8=(unsigned char *)data;
 
 if(((LIBMVL_OFFSET64)(data)) & 0x7) { 
 	mvl_set_error(ctx, LIBMVL_ERR_UNALIGNED_POINTER);
@@ -877,8 +880,6 @@ if((checksum_area_start & 0x7) || (checksum_block_size & 0x7) || (checksum_area_
 	mvl_set_error(ctx, LIBMVL_ERR_UNALIGNED_OFFSET);
 	return(LIBMVL_NULL_OFFSET);
 	}
-
-data8=(unsigned char *)data;
 
 memset(hdr, 0, sizeof(*hdr));
 hdr->type=LIBMVL_VECTOR_CHECKSUM;
@@ -954,9 +955,15 @@ LIBMVL_OFFSET64 block, buffer_idx, block_stop, hash, start2, stop2;
 unsigned char *data8;
 LIBMVL_OFFSET64 *buffer;
 
+if(stop==start) {
+	/* Nothing to check */
+	return(0);
+	}
+
 if(data==NULL) {
 	data_size=ctx->data_size;
 	data=ctx->data;
+
 	if(data==NULL) {
 		mvl_set_error(ctx, LIBMVL_ERR_NO_DATA);
 		return(-1);
@@ -984,11 +991,6 @@ if(hdr->type!=LIBMVL_VECTOR_CHECKSUM) {
 if(hdr->checksum_algorithm!=LIBMVL_CHECKSUM_ALGORITHM_INTERNAL1_HASH64) {
 	mvl_set_error(ctx, LIBMVL_ERR_UNKNOWN_CHECKSUM_ALGORITHM);
 	return(-4);
-	}
-
-if(stop==start) {
-	/* Nothing to check */
-	return(0);
 	}
 
 if(stop<start) {
@@ -1055,6 +1057,7 @@ unsigned char *data8;
 if(data==NULL) {
 	data_size=ctx->data_size;
 	data=ctx->data;
+
 	if(data==NULL) {
 		mvl_set_error(ctx, LIBMVL_ERR_NO_DATA);
 		return(-1);
@@ -1101,18 +1104,19 @@ int a;
 if(data==NULL) {
 	data_size=ctx->data_size;
 	data=ctx->data;
+
 	if(data==NULL) {
 		mvl_set_error(ctx, LIBMVL_ERR_NO_DATA);
 		return(-1);
 		}
 	}
 
+data8=(char *)data;
+
 if((err=mvl_validate_vector(vector_offset, data, data_size))!=0) {
 	mvl_set_error(ctx, err);
 	return(-50);
 	}
-
-data8=(char *)data;
 
 if(checksum_vector==NULL) {
 	if(ctx->full_checksums_offset==LIBMVL_NULL_OFFSET) {
@@ -1160,6 +1164,7 @@ char *stop8=(char *)stop;
 if(data==NULL) {
 	data_size=ctx->data_size;
 	data=ctx->data;
+
 	if(data==NULL) {
 		mvl_set_error(ctx, LIBMVL_ERR_NO_DATA);
 		return(-1);
@@ -1563,6 +1568,7 @@ if(metadata_offset==LIBMVL_NO_METADATA)return(NULL);
 if(data==NULL) {
 	data_size=ctx->data_size;
 	data=ctx->data;
+
 	if(data==NULL) {
 		mvl_set_error(ctx, LIBMVL_ERR_NO_DATA);
 		return(NULL);
@@ -1632,6 +1638,7 @@ if(offset==LIBMVL_NULL_OFFSET)return(NULL);
 if(data==NULL) {
 	data_size=ctx->data_size;
 	data=ctx->data;
+
 	if(data==NULL) {
 		mvl_set_error(ctx, LIBMVL_ERR_NO_DATA);
 		return(NULL);
