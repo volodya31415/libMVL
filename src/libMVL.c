@@ -955,15 +955,14 @@ unsigned char *data8;
 LIBMVL_OFFSET64 *buffer;
 
 if(data==NULL) {
-	data=ctx->data;
 	data_size=ctx->data_size;
+	data=ctx->data;
+	if(data==NULL) {
+		mvl_set_error(ctx, LIBMVL_ERR_NO_DATA);
+		return(-1);
+		}
 	}
 
-if(data==NULL) {
-	mvl_set_error(ctx, LIBMVL_ERR_NO_DATA);
-	return(-1);
-	}
-	
 data8=(unsigned char *)data;
 
 if(checksum_vector==NULL) {
@@ -987,14 +986,14 @@ if(hdr->checksum_algorithm!=LIBMVL_CHECKSUM_ALGORITHM_INTERNAL1_HASH64) {
 	return(-4);
 	}
 
-if(stop<start) {
-	mvl_set_error(ctx, LIBMVL_ERR_INVALID_OFFSET);
-	return(-5);
-	}
-
 if(stop==start) {
 	/* Nothing to check */
 	return(0);
+	}
+
+if(stop<start) {
+	mvl_set_error(ctx, LIBMVL_ERR_INVALID_OFFSET);
+	return(-5);
 	}
 	
 if(start<hdr->checksum_area_start || stop>hdr->checksum_area_stop) {
