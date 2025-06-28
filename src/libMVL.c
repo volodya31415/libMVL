@@ -862,14 +862,11 @@ unsigned char *zeros;
 
 if(data==NULL) {
 	data=ctx->data;
+	if(data==NULL) {
+		mvl_set_error(ctx, LIBMVL_ERR_NO_DATA);
+		return(LIBMVL_NULL_OFFSET);
+		}
 	}
-
-if(data==NULL) {
-	mvl_set_error(ctx, LIBMVL_ERR_NO_DATA);
-	return(LIBMVL_NULL_OFFSET);
-	}
-	
-data8=(unsigned char *)data;
 
 if(((LIBMVL_OFFSET64)(data)) & 0x7) { 
 	mvl_set_error(ctx, LIBMVL_ERR_UNALIGNED_POINTER);
@@ -880,7 +877,9 @@ if((checksum_area_start & 0x7) || (checksum_block_size & 0x7) || (checksum_area_
 	mvl_set_error(ctx, LIBMVL_ERR_UNALIGNED_OFFSET);
 	return(LIBMVL_NULL_OFFSET);
 	}
-	
+
+data8=(unsigned char *)data;
+
 memset(hdr, 0, sizeof(*hdr));
 hdr->type=LIBMVL_VECTOR_CHECKSUM;
 hdr->checksum_algorithm=LIBMVL_CHECKSUM_ALGORITHM_INTERNAL1_HASH64;
