@@ -1158,15 +1158,14 @@ char *start8=(char *)start;
 char *stop8=(char *)stop;
 
 if(data==NULL) {
-	data=ctx->data;
 	data_size=ctx->data_size;
+	data=ctx->data;
+	if(data==NULL) {
+		mvl_set_error(ctx, LIBMVL_ERR_NO_DATA);
+		return(-1);
+		}
 	}
 
-if(data==NULL) {
-	mvl_set_error(ctx, LIBMVL_ERR_NO_DATA);
-	return(-1);
-	}
-	
 data8=(char *)data;
 
 if( (start8-data8 < 0) || (start8-data8>data_size) || (stop8-data8<0) || (stop8-data8>data_size)) {
