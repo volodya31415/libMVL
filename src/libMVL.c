@@ -1630,13 +1630,12 @@ int err;
 if(offset==LIBMVL_NULL_OFFSET)return(NULL);
 
 if(data==NULL) {
-	data=ctx->data;
 	data_size=ctx->data_size;
-	}
-	
-if(data==NULL) {
-	mvl_set_error(ctx, LIBMVL_ERR_NO_DATA);
-	return(NULL);
+	data=ctx->data;
+	if(data==NULL) {
+		mvl_set_error(ctx, LIBMVL_ERR_NO_DATA);
+		return(NULL);
+		}
 	}
 
 if((err=mvl_validate_vector(offset, data, data_size))!=0) {
