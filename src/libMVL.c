@@ -523,8 +523,8 @@ offset=mvl_start_write_vector(ctx, mvl_vector_type(vec), vec_length, 0, NULL, me
 
 if(mvl_vector_type(vec)==LIBMVL_PACKED_LIST64) {
 	char_buf_length=char_length;
-	if(char_buf_length>max_buffer)char_buf_length=max_buffer;
 	if(char_buf_length<100)char_buf_length=100;
+	else if(char_buf_length>max_buffer)char_buf_length=max_buffer;
 	char_buffer=do_malloc(char_buf_length, 1);
 	char_offset=mvl_start_write_vector(ctx, LIBMVL_VECTOR_UINT8, char_length, 0, NULL, LIBMVL_NO_METADATA);
 	i=char_offset+sizeof(LIBMVL_VECTOR_HEADER);
