@@ -1099,22 +1099,21 @@ int element_size;
 int a;
 
 if(data==NULL) {
-	data=ctx->data;
 	data_size=ctx->data_size;
+	data=ctx->data;
+	if(data==NULL) {
+		mvl_set_error(ctx, LIBMVL_ERR_NO_DATA);
+		return(-1);
+		}
 	}
-	
-if(data==NULL) {
-	mvl_set_error(ctx, LIBMVL_ERR_NO_DATA);
-	return(-1);
-	}
-	
-data8=(char *)data;
 
 if((err=mvl_validate_vector(vector_offset, data, data_size))!=0) {
 	mvl_set_error(ctx, err);
 	return(-50);
 	}
-	
+
+data8=(char *)data;
+
 if(checksum_vector==NULL) {
 	if(ctx->full_checksums_offset==LIBMVL_NULL_OFFSET) {
 		mvl_set_error(ctx, LIBMVL_ERR_NO_CHECKSUMS);
