@@ -862,11 +862,11 @@ unsigned char *zeros;
 
 if(data==NULL) {
 	data=ctx->data;
-	}
 
-if(data==NULL) {
-	mvl_set_error(ctx, LIBMVL_ERR_NO_DATA);
-	return(LIBMVL_NULL_OFFSET);
+	if(data==NULL) {
+		mvl_set_error(ctx, LIBMVL_ERR_NO_DATA);
+		return(LIBMVL_NULL_OFFSET);
+		}
 	}
 	
 data8=(unsigned char *)data;
@@ -955,14 +955,19 @@ LIBMVL_OFFSET64 block, buffer_idx, block_stop, hash, start2, stop2;
 unsigned char *data8;
 LIBMVL_OFFSET64 *buffer;
 
+if(stop==start) {
+	/* Nothing to check */
+	return(0);
+	}
+	
 if(data==NULL) {
 	data=ctx->data;
 	data_size=ctx->data_size;
-	}
 
-if(data==NULL) {
-	mvl_set_error(ctx, LIBMVL_ERR_NO_DATA);
-	return(-1);
+	if(data==NULL) {
+		mvl_set_error(ctx, LIBMVL_ERR_NO_DATA);
+		return(-1);
+		}
 	}
 	
 data8=(unsigned char *)data;
@@ -993,11 +998,6 @@ if(stop<start) {
 	return(-5);
 	}
 
-if(stop==start) {
-	/* Nothing to check */
-	return(0);
-	}
-	
 if(start<hdr->checksum_area_start || stop>hdr->checksum_area_stop) {
 	mvl_set_error(ctx, LIBMVL_ERR_INVALID_OFFSET);
 	return(-6);
@@ -1057,12 +1057,13 @@ unsigned char *data8;
 if(data==NULL) {
 	data=ctx->data;
 	data_size=ctx->data_size;
+	
+	if(data==NULL) {
+		mvl_set_error(ctx, LIBMVL_ERR_NO_DATA);
+		return(-1);
+		}
 	}
 
-if(data==NULL) {
-	mvl_set_error(ctx, LIBMVL_ERR_NO_DATA);
-	return(-1);
-	}
 	
 data8=(unsigned char *)data;
 
@@ -1104,12 +1105,13 @@ int a;
 if(data==NULL) {
 	data=ctx->data;
 	data_size=ctx->data_size;
+	
+	if(data==NULL) {
+		mvl_set_error(ctx, LIBMVL_ERR_NO_DATA);
+		return(-1);
+		}
 	}
 	
-if(data==NULL) {
-	mvl_set_error(ctx, LIBMVL_ERR_NO_DATA);
-	return(-1);
-	}
 	
 data8=(char *)data;
 
@@ -1164,12 +1166,13 @@ char *stop8=(char *)stop;
 if(data==NULL) {
 	data=ctx->data;
 	data_size=ctx->data_size;
+	
+	if(data==NULL) {
+		mvl_set_error(ctx, LIBMVL_ERR_NO_DATA);
+		return(-1);
+		}
 	}
 
-if(data==NULL) {
-	mvl_set_error(ctx, LIBMVL_ERR_NO_DATA);
-	return(-1);
-	}
 	
 data8=(char *)data;
 
@@ -1568,12 +1571,13 @@ if(metadata_offset==LIBMVL_NO_METADATA)return(NULL);
 if(data==NULL) {
 	data=ctx->data;
 	data_size=ctx->data_size;
+	
+	if(data==NULL) {
+		mvl_set_error(ctx, LIBMVL_ERR_NO_DATA);
+		return(NULL);
+		}
 	}
 	
-if(data==NULL) {
-	mvl_set_error(ctx, LIBMVL_ERR_NO_DATA);
-	return(NULL);
-	}
 
 if((err=mvl_validate_vector(metadata_offset, data, data_size))!=0) {
 	mvl_set_error(ctx, LIBMVL_ERR_INVALID_OFFSET);
@@ -1638,12 +1642,13 @@ if(offset==LIBMVL_NULL_OFFSET)return(NULL);
 if(data==NULL) {
 	data=ctx->data;
 	data_size=ctx->data_size;
+	
+	if(data==NULL) {
+		mvl_set_error(ctx, LIBMVL_ERR_NO_DATA);
+		return(NULL);
+		}
 	}
 	
-if(data==NULL) {
-	mvl_set_error(ctx, LIBMVL_ERR_NO_DATA);
-	return(NULL);
-	}
 
 if((err=mvl_validate_vector(offset, data, data_size))!=0) {
 	mvl_set_error(ctx, LIBMVL_ERR_INVALID_OFFSET);
