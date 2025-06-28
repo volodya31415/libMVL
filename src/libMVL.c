@@ -1053,15 +1053,14 @@ LIBMVL_CHECKSUM_VECTOR_HEADER *hdr;
 unsigned char *data8;
 
 if(data==NULL) {
-	data=ctx->data;
 	data_size=ctx->data_size;
+	data=ctx->data;
+	if(data==NULL) {
+		mvl_set_error(ctx, LIBMVL_ERR_NO_DATA);
+		return(-1);
+		}
 	}
 
-if(data==NULL) {
-	mvl_set_error(ctx, LIBMVL_ERR_NO_DATA);
-	return(-1);
-	}
-	
 data8=(unsigned char *)data;
 
 if(checksum_vector==NULL) {
