@@ -3267,7 +3267,7 @@ switch(mvl_vector_type(vec)) {
 		stats->min=a0;
 		stats->center=(a0+a1)*0.5;
 		if(a1>a0)
-			stats->scale=2/(a1-a0);
+			stats->scale=2.0/(a1-a0);
 			else
 			stats->scale=0.0;
 		break;
@@ -3297,7 +3297,7 @@ switch(mvl_vector_type(vec)) {
 		stats->min=a0;
 		stats->center=(a0+a1)*0.5;
 		if(a1>a0)
-			stats->scale=2/(a1-a0);
+			stats->scale=2.0/(a1-a0);
 			else
 			stats->scale=0.0;
 		break;
@@ -3327,7 +3327,7 @@ switch(mvl_vector_type(vec)) {
 		stats->min=a0;
 		stats->center=(a0*1.0+a1*1.0)*0.5;
 		if(a1>a0)
-			stats->scale=2/(a1-a0);
+			stats->scale=2.0/(a1-a0);
 			else
 			stats->scale=0.0;
 		break;
@@ -3357,7 +3357,7 @@ switch(mvl_vector_type(vec)) {
 		stats->min=a0;
 		stats->center=(a0*1.0+a1*1.0)*0.5;
 		if(a1>a0)
-			stats->scale=2/(a1-a0);
+			stats->scale=2.0/(a1-a0);
 			else
 			stats->scale=0.0;
 		break;
