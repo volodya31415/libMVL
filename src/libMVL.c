@@ -75,7 +75,15 @@ return(p);
 
 #else
 
+#ifdef __WIN32__
+
+#define off_t  long long int
+
+#else 
+
 #define HAVE_FTELLO
+
+#endif
 
 #endif
 
@@ -84,9 +92,16 @@ off_t do_ftello(FILE *f)
 #ifdef HAVE_FTELLO
 return(ftello(f));
 #else
+
+#ifdef __WIN32__
+fflush(f);
+return(_lseeki64(fileno(f), 0, SEEK_CUR));
+
+#else
 /* ftello() is broken on MacOS >= 10.15 */
 fflush(f);
 return(lseek(fileno(f), 0, SEEK_CUR));
+#endif
 #endif
 }
 
@@ -679,7 +694,7 @@ ctx->tmp_vh.metadata=metadata;
 
 offset=do_ftello(ctx->f);
 
-if((long long)offset<0) {
+if((long long int)offset<0) {
 	perror("mvl_write_vector");
 	mvl_set_error(ctx, LIBMVL_ERR_FTELL);
 	}
@@ -899,7 +914,7 @@ buffer=do_malloc(LIBMVL_INTERNAL1_HASH64_BLOCKSIZE, sizeof(*buffer));
 	
 offset=do_ftello(ctx->f);
 
-if((long long)offset<0) {
+if((long long int)offset<0) {
 	perror("mvl_write_vector");
 	mvl_set_error(ctx, LIBMVL_ERR_FTELL);
 	}
@@ -1272,7 +1287,7 @@ for(int i=0;i<ctx->directory->free;i++) {
 	
 cur=do_ftello(ctx->f);
 
-if((long long)cur<0) {
+if((long long int)cur<0) {
 	perror("mvl_write_directory");
 	mvl_set_error(ctx, LIBMVL_ERR_FTELL);
 	}
